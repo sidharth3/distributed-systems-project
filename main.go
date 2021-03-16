@@ -18,8 +18,8 @@ type Node struct {
 
 type Master struct {
 	Node
-	Slaves         map[*Slave]Status // Slave instance => Status
-	DirectoryTable map[string]*Slave // "/foo/bar.txt" => Slave instance
+	Slaves         map[*Slave]Status   // Slave instance => Status
+	DirectoryTable map[string][]string // "/foo/bar.txt" => Slave instance
 }
 
 type Slave struct {
