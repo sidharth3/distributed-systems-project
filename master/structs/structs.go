@@ -1,14 +1,16 @@
 package structs
 
+import "sync"
+
 type Master struct {
 	IP             string
+	Lock           *sync.Mutex
 	Slaves         map[*Slave]Status
 	DirectoryTable map[string][]*Slave
 }
 
 type Slave struct {
 	IP    string
-	ID    int
 	Files []string
 }
 

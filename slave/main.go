@@ -22,6 +22,7 @@ func main() {
 		}
 
 		http.HandleFunc("/file", handlers.DownloadFile)
+		http.HandleFunc("/heartbeat", handlers.HeartbeatHandler)
 		log.Fatal(http.ListenAndServe("127.0.0.1:"+os.Args[1], nil))
 	}
 }
