@@ -1,19 +1,24 @@
 package handlers
 
 import (
-	"fmt"
+	"ds-proj/slave/helpers"
+	"encoding/json"
+	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 )
 
 func DownloadFile(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	filename := r.Form["file"][0]
-	http.ServeFile(w, r, filepath.Join(fmt.Sprintf("files_%v", os.Args[1]), filename))
+	http.ServeFile(w, r, filepath.Join(helpers.StorageDir(), filename))
 }
 
 func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "i is ok")
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(helpers.ListDir())
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Write(data)
 }

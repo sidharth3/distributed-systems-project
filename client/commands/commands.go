@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func getfile_slave(slave_ip string, filename string) {
+func getFileSlave(slave_ip string, filename string) {
 	res, err := http.Get("http://" + slave_ip + "/file?file=" + filename)
 	if err != nil {
 		log.Fatal(err)
@@ -17,7 +17,7 @@ func getfile_slave(slave_ip string, filename string) {
 	fmt.Println(res)
 }
 
-func Getfile_master(master_ip string, filename string) {
+func GetFileMaster(master_ip string, filename string) {
 	res, err := http.Get("http://" + master_ip + "/file?file=" + filename)
 	if err != nil {
 		log.Fatal(err)
@@ -35,5 +35,5 @@ func Getfile_master(master_ip string, filename string) {
 	}
 
 	//Add some way to determine best slave
-	getfile_slave(ipArr[0], filename)
+	getFileSlave(ipArr[0], filename)
 }

@@ -2,16 +2,18 @@ package structs
 
 import "sync"
 
+// Map to bool represents a set. Easier to delete element.
 type Master struct {
 	IP             string
 	Lock           *sync.Mutex
-	Slaves         map[*Slave]Status
-	DirectoryTable map[string][]*Slave
+	Slaves         map[*Slave]bool
+	DirectoryTable map[string](map[*Slave]bool)
 }
 
 type Slave struct {
-	IP    string
-	Files []string
+	IP     string
+	Files  map[string]bool
+	Status Status
 }
 
 // Status is an enumerated type
