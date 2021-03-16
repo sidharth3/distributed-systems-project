@@ -92,13 +92,13 @@ func main() {
 
 	// Start all the nodes
 	go s.HttpServerStart()
-	go m.HttpServerStart()
+	//go m.HttpServerStart()
 
 	// Test heartbeat message
-	time.Sleep(1000)
-	for slave := range m.Slaves {
-		m.PingSlave(slave)
-	}
+	// time.Sleep(1000)
+	// for slave := range m.Slaves {
+	// 	m.PingSlave(slave)
+	// }
 
 	// Prevents the program from terminating
 	var input string
