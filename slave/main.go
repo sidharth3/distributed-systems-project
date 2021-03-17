@@ -10,6 +10,8 @@ import (
 	"os"
 )
 
+//to run slave - go run main.go 8081 127.0.0.1:8080
+
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Please enter a port number and a master IP address.")

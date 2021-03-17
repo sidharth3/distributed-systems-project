@@ -14,6 +14,17 @@ func getFileSlave(slave_ip string, filename string) {
 		log.Fatal(err)
 	}
 
+	//only for verbose
+	if res.StatusCode == http.StatusOK {
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		outputString := string(body)
+		fmt.Println(outputString)
+
+	}
+
 	fmt.Println(res)
 }
 
