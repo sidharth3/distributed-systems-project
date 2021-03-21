@@ -2,6 +2,7 @@ package senders
 
 import (
 	"bytes"
+	"ds-proj/slave/config"
 	"ds-proj/slave/helpers"
 	"encoding/json"
 	"fmt"
@@ -25,7 +26,7 @@ func RegisterWithMaster() {
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{
-		Timeout: time.Second * helpers.TIMEOUT,
+		Timeout: time.Second * config.TIMEOUT,
 	}
 
 	resp, err := client.Do(req)

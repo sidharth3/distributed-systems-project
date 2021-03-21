@@ -1,19 +1,15 @@
 package helpers
 
 import (
+	"ds-proj/slave/config"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 )
 
-const (
-	ip      = "127.0.0.1"
-	TIMEOUT = 5
-)
-
 func IP() string {
-	return ip + ":" + os.Args[1]
+	return config.BASEIP + ":" + os.Args[1]
 }
 
 func StorageDir() string {

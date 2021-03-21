@@ -5,22 +5,30 @@ import (
 	"sync"
 )
 
-func TestCase1() *structs.Master {
-	var lock sync.Mutex
-	defaultFileSet := make(map[string]bool)
-	defaultFileSet["test_file.txt"] = true
-	defaultSlave := &structs.Slave{"127.0.0.1:8081", defaultFileSet, structs.UNDERLOADED}
-	defaultSlaveMap := make(map[*structs.Slave]bool)
-	defaultSlaveMap[defaultSlave] = true
-	defaultDirTable := make(map[string](map[*structs.Slave]bool))
-	defaultDirTableEntry := make(map[*structs.Slave]bool)
-	defaultDirTableEntry[defaultSlave] = true
-	defaultDirTable["test_file.txt"] = defaultDirTableEntry
-	master := structs.Master{"127.0.0.1:8080", &lock, defaultSlaveMap, defaultDirTable}
+// Pure empty init
+func EmptyCase() *structs.Master {
+	master := structs.Master{"127.0.0.1:8080",
+		&sync.Mutex{},
+		&sync.Mutex{},
+		&sync.Mutex{},
+		make(map[*structs.Slave]bool),
+		make(map[string]map[string]bool),
+		make(map[string]string),
+	}
 	return &master
 }
 
-func EmptyCase() *structs.Master {
-	master := structs.Master{"127.0.0.1:8080", &sync.Mutex{}, make(map[*structs.Slave]bool), make(map[string]map[*structs.Slave]bool)}
+// Initialize with single file in namespace
+func SimpleCase() *structs.Master {
+	namespace := make(map[string]string)
+	namespace["test_file.txt"] = "d383caabf6289b8ad52e401dafb20fb301ec3b760d1708e2501e5a39f130a1fc"
+	master := structs.Master{"127.0.0.1:8080",
+		&sync.Mutex{},
+		&sync.Mutex{},
+		&sync.Mutex{},
+		make(map[*structs.Slave]bool),
+		make(map[string]map[string]bool),
+		namespace,
+	}
 	return &master
 }
