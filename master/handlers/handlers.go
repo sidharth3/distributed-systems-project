@@ -8,6 +8,28 @@ import (
 	"net/http"
 )
 
+// Sends an array of strings over to the client. [ip1, ip2, ip3]
+func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		ipArr := make([]string, 0)
+		m.SLock.Lock()
+		for slave := range m.Slaves {
+			// TODO: some way to select the 3 most free slaves
+			ipArr = append(ipArr, slave.IP)
+			if len(ipArr) == 3 {
+				break
+			}
+		}
+		m.SLock.Unlock()
+
+		data, err := json.Marshal(ipArr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.Write(data)
+	}
+}
+
 // Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
 func HandleFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {

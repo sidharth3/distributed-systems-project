@@ -3,8 +3,12 @@ package handlers
 import (
 	"ds-proj/slave/helpers"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -12,6 +16,42 @@ func DownloadFile(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	filename := r.Form["file"][0]
 	http.ServeFile(w, r, filepath.Join(helpers.StorageDir(), filename))
+}
+
+func UploadFile(w http.ResponseWriter, r *http.Request) {
+	// Parse our multipart form, 10 << 20 specifies a maximum upload of 10 MB files
+	r.ParseMultipartForm(10 << 20)
+	file, fileHeader, err := r.FormFile("filename")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	defer file.Close()
+
+	// Create a new file in the uploads directory
+	dst, err := os.Create(path.Join(helpers.StorageDir(), fileHeader.Filename))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	defer dst.Close()
+
+	// Copy the uploaded file to the filesystem at the specified destination
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("Uploaded File: %v\n", fileHeader.Filename)
+	fmt.Printf("File Size: %v\n", fileHeader.Size)
+
+	// TODO: need to inform master first?
+
+	// return that we have successfully uploaded our file
+	fmt.Fprintf(w, "Successfully Uploaded File")
 }
 
 func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
