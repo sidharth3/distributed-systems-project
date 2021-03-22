@@ -2,16 +2,16 @@ package main
 
 import (
 	"ds-proj/master/handlers"
-	"ds-proj/master/senders"
+	"ds-proj/master/periodic"
 	"ds-proj/master/test"
 	"net/http"
 )
 
 func main() {
-	master := test.EmptyCase()
-	// master := test.TestCase1()
+	master := test.SimpleCase()
 
-	go senders.HeartbeatSender(master)
+	go periodic.HeartbeatSender(master)
+	go periodic.FileLocationsUpdater(master)
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
 	http.HandleFunc("/register", handlers.HandleNewSlave(master))

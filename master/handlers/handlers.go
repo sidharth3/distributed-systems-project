@@ -8,15 +8,24 @@ import (
 	"net/http"
 )
 
+// Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
 func HandleFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
 		w.Header().Set("Content-Type", "application/json")
 		ipArr := make([]string, 0)
-		for slave := range m.DirectoryTable[filename] {
-			ipArr = append(ipArr, slave.IP)
+
+		m.NLock.Lock()
+		ipArr = append(ipArr, m.Namespace[filename])
+		m.NLock.Unlock()
+
+		m.FLock.Lock()
+		for ip := range m.FileLocations[ipArr[0]] {
+			ipArr = append(ipArr, ip)
 		}
+		m.FLock.Unlock()
+
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
@@ -26,15 +35,9 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 }
 
 func newSlave(m *structs.Master, slave *structs.Slave) {
-	m.Lock.Lock()
+	m.SLock.Lock()
 	m.Slaves[slave] = true
-	for file := range slave.Files {
-		if m.DirectoryTable[file] == nil {
-			m.DirectoryTable[file] = make(map[*structs.Slave]bool)
-		}
-		m.DirectoryTable[file][slave] = true
-	}
-	m.Lock.Unlock()
+	m.SLock.Unlock()
 }
 
 func HandleNewSlave(m *structs.Master) http.HandlerFunc {
@@ -58,7 +61,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 			}
 		}
 
-		slave := structs.Slave{slaveIP, files, structs.UNDERLOADED}
+		slave := structs.Slave{slaveIP, structs.UNDERLOADED, files}
 		newSlave(m, &slave)
 	}
 }
