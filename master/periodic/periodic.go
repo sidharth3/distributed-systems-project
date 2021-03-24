@@ -1,6 +1,7 @@
 package periodic
 
 import (
+	"bytes"
 	"ds-proj/master/config"
 	"ds-proj/master/structs"
 	"encoding/json"
@@ -86,5 +87,44 @@ func FileLocationsUpdater(m *structs.Master) {
 		fmt.Println("Updating file locations")
 		updateFileLocations(m)
 		fmt.Println("File locations updated")
+	}
+}
+
+// for garbage collector: 
+// periodically sends over the values of the namespaces in the Master struct
+func SlaveGarbageCollector(m *structs.Master){
+	for{
+		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
+		fmt.Println("Sending garbage collection message ...")
+		// prepare hashedContent
+		m.NLock.Lock()
+		hashedContent := make(map[string]bool)
+		for _,v := range m.Namespace{
+			hashedContent[v] = true
+		}
+		m.NLock.Unlock()
+
+		filesBytes, err := json.Marshal(hashedContent)
+		if err != nil {
+			log.Fatal()
+		}
+
+		//send over hashedContent to each slave
+		m.SLock.Lock()
+		for slave := range m.Slaves {
+			go func(slave *structs.Slave) {
+				fmt.Println("Sending garbage collector msg to slave at", slave.IP, "...")
+				req, err := http.NewRequest("POST", "http://"+slave.IP+"/garbagecollector", bytes.NewBuffer(filesBytes))
+				if err != nil {
+					log.Fatal(err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				client := &http.Client{
+					Timeout: time.Second * config.TIMEOUT,
+				}
+				client.Do(req)
+			}(slave)
+		}
+		m.SLock.Unlock()
 	}
 }

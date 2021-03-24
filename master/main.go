@@ -12,6 +12,7 @@ func main() {
 
 	go periodic.HeartbeatSender(master)
 	go periodic.FileLocationsUpdater(master)
+	go periodic.SlaveGarbageCollector(master)
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
 	http.HandleFunc("/register", handlers.HandleNewSlave(master))
