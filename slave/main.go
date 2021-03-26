@@ -24,6 +24,7 @@ func main() {
 		go senders.RegisterWithMaster()
 
 		http.HandleFunc("/file", handlers.DownloadFile)
+		http.HandleFunc("/upload", handlers.UploadFile)
 		http.HandleFunc("/heartbeat", handlers.HeartbeatHandler)
 		http.HandleFunc("/garbagecollector", handlers.GarbageCollectorHandler)
 		log.Fatal(http.ListenAndServe(helpers.IP(), nil))

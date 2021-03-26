@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"ds-proj/client/commands"
+	"ds-proj/client/helpers"
 	"errors"
 	"fmt"
 	"os"
@@ -12,10 +13,10 @@ import (
 
 //once inside the shell, can do 'getfile 127.0.0.1:8080 <filename>'
 func main() {
-	//commands.GetFileMaster("127.0.0.1:8080", "test_file.txt")
+	helpers.MockClient()
+	os.MkdirAll(helpers.StorageDir(), os.ModePerm)
 
 	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		fmt.Print(("$~ "))
 		command, err := reader.ReadString('\n')
@@ -33,15 +34,20 @@ func run(command string) error {
 	command = strings.TrimSuffix(command, "\n")
 	arrCommand := strings.Fields(command)
 
+	if len(arrCommand) < 3 {
+		return errors.New("Missing two args. getfile requires masterIP and file name.")
+	}
+
 	switch arrCommand[0] {
 	case "exit":
 		os.Exit(0)
 
 	case "getfile":
-		if len(arrCommand) < 3 {
-			return errors.New("Missing two args. getfile requires masterIP and file name.")
-		}
-		commands.GetFileMaster(arrCommand[1], arrCommand[2])
+		commands.GetFile(arrCommand[1], arrCommand[2])
+		return nil
+	case "postfile":
+		// you need to manually create a file in your own directory first
+		commands.PostFile(arrCommand[1], arrCommand[2])
 		return nil
 	default:
 		fmt.Println("Invalid command.")

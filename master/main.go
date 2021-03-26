@@ -15,6 +15,7 @@ func main() {
 	go periodic.SlaveGarbageCollector(master)
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
+	http.HandleFunc("/slaveips", handlers.HandleSlaveIPs(master))
 	http.HandleFunc("/register", handlers.HandleNewSlave(master))
 	http.ListenAndServe("127.0.0.1:8080", nil)
 }
