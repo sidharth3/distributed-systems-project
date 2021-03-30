@@ -49,6 +49,9 @@ func run(command string) error {
 		// you need to manually create a file in your own directory first
 		commands.PostFile(arrCommand[1], arrCommand[2])
 		return nil
+	case "deletefile":
+		commands.DeleteFile(arrCommand[1], arrCommand[2])
+		return nil
 	default:
 		fmt.Println("Invalid command.")
 		return nil

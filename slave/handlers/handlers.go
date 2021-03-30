@@ -4,8 +4,8 @@ import (
 	"ds-proj/slave/helpers"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -55,6 +55,40 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Successfully Uploaded File")
 }
 
+func HandleReplica(w http.ResponseWriter, r *http.Request) {
+	toGetByte, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	toGet := make(map[string]string)
+	err = json.Unmarshal(toGetByte, &toGet)
+
+	// toGet => {fileHash: ip1, fileHash, ip2}
+	for f, ip := range toGet {
+		res, err := http.Get("http://" + ip + "/file?file=" + f)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Create the file
+		if res.StatusCode == http.StatusOK {
+			out, err := os.Create(path.Join(helpers.StorageDir(), f))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer out.Close()
+
+			// Write the body to file
+			_, err = io.Copy(out, res.Body)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+}
+
 func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(helpers.ListDir())
@@ -64,24 +98,24 @@ func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request){
+func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
 	filesBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	files := make( map[string]bool)
+	files := make(map[string]bool)
 	err = json.Unmarshal(filesBytes, &files)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("RECIEVED:",files)
+	fmt.Println("RECIEVED:", files)
 	//check if in, else delete
 	dirs := helpers.ListDir()
-	for dir := range dirs{
-		if !files[dir]{
-			fmt.Println("File",dir,"is no longer referenced in master, and will be deleted.")
+	for dir := range dirs {
+		if !files[dir] {
+			fmt.Println("File", dir, "is no longer referenced in master, and will be deleted.")
 			helpers.DeleteFile(dir)
 		}
 	}
