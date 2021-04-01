@@ -15,12 +15,15 @@ import (
 	"strings"
 )
 
+var responses = make(chan int, 3)
+
 func GetFile(master_ip string, filename string) {
 	// Sends a GET request to the master for a list of slave ips with that filename
 	ipArr := getFileMaster(master_ip, filename)
 
 	// Sends a GET request to the slave for the file content
 	// Currently just using first ip returned
+	// fmt.Println(ipArr)
 	getFileSlave(ipArr[1], ipArr[0])
 }
 
@@ -29,8 +32,28 @@ func PostFile(master_ip string, filename string) {
 	ipArr := getSlaveIPsMaster(master_ip)
 
 	// Sends a POST request to the slave to upload the file content
-	// Currently just using first ip returned
-	postFileSlave(ipArr[0], filename)
+	// sends file to all alive slaves
+	// fmt.Println(ipArr)
+	fmt.Println(ipArr)
+	//Now, ipArr's last element is the uid of the operation so must remove the last slice.
+
+	uid := ipArr[len(ipArr)-1]
+	ipArr = ipArr[:len(ipArr)-1]
+	// fmt.Println(uid)
+	for _, ip := range ipArr {
+		postFileSlave(ip, filename, uid)
+	}
+
+	// fmt.Println(len(responses))
+
+	if len(responses) < (len(ipArr) - 1) {
+		fmt.Println("Upload operation Failed.")
+	} else {
+		fmt.Println("Upload operation Success.")
+	}
+	for len(responses) > 0 {
+		<-responses
+	}
 }
 
 func getFileMaster(master_ip string, filename string) []string {
@@ -69,7 +92,7 @@ func getFileSlave(slave_ip string, hashValue string) {
 		fmt.Println(outputString)
 	}
 
-	fmt.Println(res)
+	// fmt.Println(res)
 }
 
 func getSlaveIPsMaster(master_ip string) []string {
@@ -89,11 +112,12 @@ func getSlaveIPsMaster(master_ip string) []string {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(ipArr)
 
 	return ipArr
 }
 
-func postFileSlave(slave_ip string, filename string) (err error) {
+func postFileSlave(slave_ip string, filename string, uid string) (err error) {
 	slaveURL := "http://" + slave_ip + "/upload"
 
 	f := helpers.OpenFile(path.Join(helpers.StorageDir(), filename))
@@ -102,7 +126,7 @@ func postFileSlave(slave_ip string, filename string) (err error) {
 	// prepare the reader instances to encode
 	values := map[string]io.Reader{
 		"filename":  helpers.OpenFile(path.Join(helpers.StorageDir(), filename)),
-		"hashvalue": strings.NewReader(hashValue),
+		"uid":       strings.NewReader(uid),
 	}
 
 	// Prepare a form that you will submit to the URL
@@ -139,6 +163,7 @@ func postFileSlave(slave_ip string, filename string) (err error) {
 
 	// only for verbose
 	if res.StatusCode == http.StatusOK {
+		responses <- 1
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err

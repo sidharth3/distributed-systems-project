@@ -3,10 +3,23 @@ package handlers
 import (
 	"ds-proj/master/structs"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/google/uuid"
 )
+
+func HandleUpdate(w http.ResponseWriter, req *http.Request) {
+
+	if err := req.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	fmt.Println(req.Form)
+	//TODO add this to responses and check master queue for it, if true update namespace
+}
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
@@ -22,6 +35,10 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 		}
 		m.SLock.Unlock()
 
+		uid := uuid.NewString()
+		ipArr = append(ipArr, uid)
+		m.Queue.Enqueue(uid)
+		// fmt.Println(m.Queue.Front())
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
@@ -40,6 +57,7 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 
 		m.NLock.Lock()
 		ipArr = append(ipArr, m.Namespace[filename])
+
 		m.NLock.Unlock()
 
 		m.FLock.Lock()
