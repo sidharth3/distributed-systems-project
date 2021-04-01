@@ -61,6 +61,10 @@ func (c *OperationQueue) Empty() bool {
 	return len(c.Queue) == 0
 }
 
+func (c *OperationQueue) ReturnObj() []string {
+	return c.Queue
+}
+
 // Status is an enumerated type
 type Status string
 

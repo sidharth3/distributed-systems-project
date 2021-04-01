@@ -88,3 +88,13 @@ func FileLocationsUpdater(m *structs.Master) {
 		fmt.Println("File locations updated")
 	}
 }
+
+func DeleteUidFromQueue(m *structs.Master) {
+	for {
+		time.Sleep(time.Second * config.DQINTERVAL)
+		fmt.Println("Deleting uid from Operation Queue")
+		if !m.Queue.Empty() {
+			m.Queue.Dequeue()
+		}
+	}
+}

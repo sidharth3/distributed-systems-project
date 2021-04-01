@@ -7,18 +7,31 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 )
 
-func HandleUpdate(w http.ResponseWriter, req *http.Request) {
+//listens to post requests from slave for uid and file hash
+func HandleUpdate(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if err := req.ParseForm(); err != nil {
+			log.Fatal(err)
+		}
 
-	if err := req.ParseForm(); err != nil {
-		fmt.Fprintf(w, "ParseForm() err: %v", err)
-		return
+		receivedHash := req.Form["filename"][0]
+		receivedUid := strings.Trim(fmt.Sprint(req.Form["uid"][0]), "[]")
+		q := m.Queue.ReturnObj()
+
+		for _, qId := range q {
+			if qId == receivedUid {
+				m.NLock.Lock()
+				m.Namespace[receivedHash] = receivedHash // is this correct?
+				m.NLock.Unlock()
+				break
+			}
+		}
 	}
-	fmt.Println(req.Form)
-	//TODO add this to responses and check master queue for it, if true update namespace
 }
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]

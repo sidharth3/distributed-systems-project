@@ -24,7 +24,9 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20)
 	file, fileHeader, err := r.FormFile("filename")
 	// uid, err := r.FormFile("uid")
-	uid := r.Form["uid"]
+	uid := fmt.Sprint(r.Form["uid"])
+	fmt.Println(fileHeader.Filename)
+	fmt.Println(uid)
 	data := url.Values{"filename": {fileHeader.Filename}, "uid": {fmt.Sprint(uid)}}
 	ForceUpdateMaster(data)
 
