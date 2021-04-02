@@ -29,12 +29,11 @@ func GetFile(master_ip string, filename string) {
 
 func PostFile(master_ip string, filename string) {
 	// Sends a GET request to the master for a list of available slave ips
-	ipArr := getSlaveIPsMaster(master_ip)
+	ipArr := getSlaveIPsMaster(master_ip, filename) // pass filename to master
 
 	// Sends a POST request to the slave to upload the file content
 	// sends file to all alive slaves
 	// fmt.Println(ipArr)
-	fmt.Println(ipArr)
 	//Now, ipArr's last element is the uid of the operation so must remove the last slice.
 
 	uid := ipArr[len(ipArr)-1]
@@ -43,8 +42,6 @@ func PostFile(master_ip string, filename string) {
 	for _, ip := range ipArr {
 		postFileSlave(ip, filename, uid)
 	}
-
-	// fmt.Println(len(responses))
 
 	if len(responses) < (len(ipArr) - 1) {
 		fmt.Println("Upload operation Failed.")
@@ -92,12 +89,11 @@ func getFileSlave(slave_ip string, hashValue string) {
 		fmt.Println(outputString)
 	}
 
-	// fmt.Println(res)
 }
 
-func getSlaveIPsMaster(master_ip string) []string {
+func getSlaveIPsMaster(master_ip string, filename string) []string {
 	// Sends a GET request to master for available slave ips
-	res, err := http.Get("http://" + master_ip + "/slaveips")
+	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -125,8 +121,8 @@ func postFileSlave(slave_ip string, filename string, uid string) (err error) {
 
 	// prepare the reader instances to encode
 	values := map[string]io.Reader{
-		"filename":  helpers.OpenFile(path.Join(helpers.StorageDir(), filename)),
-		"uid":       strings.NewReader(uid),
+		"filename": helpers.OpenFile(path.Join(helpers.StorageDir(), filename)),
+		"uid":      strings.NewReader(uid),
 	}
 
 	// Prepare a form that you will submit to the URL

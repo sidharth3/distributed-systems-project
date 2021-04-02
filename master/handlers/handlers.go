@@ -23,13 +23,14 @@ func HandleUpdate(m *structs.Master) http.HandlerFunc {
 		receivedUid := strings.Trim(fmt.Sprint(req.Form["uid"][0]), "[]")
 		q := m.Queue.ReturnObj()
 
-		for _, qId := range q {
-			if qId == receivedUid {
+		for _, qElement := range q {
+			if qElement.Uid == receivedUid {
 				m.NLock.Lock()
-				m.Namespace[receivedHash] = receivedHash // is this correct?
+				m.Namespace[qElement.Filename] = receivedHash
 				m.NLock.Unlock()
 				break
 			}
+
 		}
 	}
 }
@@ -37,6 +38,8 @@ func HandleUpdate(m *structs.Master) http.HandlerFunc {
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		req.ParseForm()
+		filename := req.Form["file"][0]
 		ipArr := make([]string, 0)
 		m.SLock.Lock()
 		for slave := range m.Slaves {
@@ -50,8 +53,11 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 
 		uid := uuid.NewString()
 		ipArr = append(ipArr, uid)
-		m.Queue.Enqueue(uid)
-		// fmt.Println(m.Queue.Front())
+
+		qItem := structs.QueueItem{Uid: uid, Filename: filename, Hash: ""}
+
+		m.Queue.Enqueue(qItem)
+
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
@@ -114,7 +120,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 			}
 		}
 
-		slave := structs.Slave{slaveIP, structs.UNDERLOADED, files}
+		slave := structs.Slave{IP: slaveIP, Status: structs.UNDERLOADED, Files: files}
 		newSlave(m, &slave)
 	}
 }

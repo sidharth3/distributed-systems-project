@@ -24,14 +24,20 @@ type Slave struct {
 }
 
 type OperationQueue struct {
-	Queue []string
+	Queue []QueueItem
 	QLock *sync.RWMutex
 }
 
-func (c *OperationQueue) Enqueue(uid string) {
+type QueueItem struct {
+	Uid      string
+	Filename string
+	Hash     string
+}
+
+func (c *OperationQueue) Enqueue(qItem QueueItem) {
 	c.QLock.Lock()
 	defer c.QLock.Unlock()
-	c.Queue = append(c.Queue, uid)
+	c.Queue = append(c.Queue, qItem)
 }
 
 func (c *OperationQueue) Dequeue() error {
@@ -41,16 +47,17 @@ func (c *OperationQueue) Dequeue() error {
 		c.Queue = c.Queue[1:]
 		return nil
 	}
-	return fmt.Errorf("Pop Error: Queue is empty")
+	return fmt.Errorf("Queue is empty")
 }
 
-func (c *OperationQueue) Front() (string, error) {
+func (c *OperationQueue) Front() (QueueItem, error) {
 	if len(c.Queue) > 0 {
 		c.QLock.Lock()
 		defer c.QLock.Unlock()
 		return c.Queue[0], nil
 	}
-	return "", fmt.Errorf("Peep Error: Queue is empty")
+	var empty QueueItem
+	return empty, fmt.Errorf("Queue is empty")
 }
 
 func (c *OperationQueue) Size() int {
@@ -61,7 +68,7 @@ func (c *OperationQueue) Empty() bool {
 	return len(c.Queue) == 0
 }
 
-func (c *OperationQueue) ReturnObj() []string {
+func (c *OperationQueue) ReturnObj() []QueueItem {
 	return c.Queue
 }
 
