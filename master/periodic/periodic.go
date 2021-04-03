@@ -12,80 +12,49 @@ import (
 	"time"
 )
 
-func deadSlave(m *structs.Master, slave *structs.Slave) {
-	m.SLock.Lock()
-	delete(m.Slaves, slave)
-	m.SLock.Unlock()
-}
-
-func aliveSlave(m *structs.Master, slave *structs.Slave, files map[string]bool) {
-	m.SLock.Lock()
-	slave.Files = files
-	m.SLock.Unlock()
-}
-
 func HeartbeatSender(m *structs.Master) {
 	for {
 		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
 		fmt.Println("Sending heartbeats ...")
-		m.SLock.Lock()
-		for slave := range m.Slaves {
-			go func(slave *structs.Slave) {
-				// No need to lock because Slave IP won't change
-				fmt.Println("Connecting to slave at ", slave.IP, "...")
-				req, err := http.NewRequest("GET", "http://"+slave.IP+"/heartbeat", nil)
-				client := &http.Client{
-					Timeout: time.Second * config.TIMEOUT,
-				}
-				resp, err := client.Do(req)
-				if err != nil || resp.StatusCode != 200 {
-					fmt.Println(slave.IP, " is DEAD. Editing metadata.")
-					deadSlave(m, slave)
-					fmt.Println("Metadata edited.")
-				} else {
-					fmt.Println(slave.IP + " is alive. Updating metadata.")
-					filesBytes, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						log.Fatal(err)
-					}
-
-					files := make(map[string]bool)
-					err = json.Unmarshal(filesBytes, &files)
-					if err != nil {
-						log.Fatal(err)
-					}
-
-					aliveSlave(m, slave, files)
-					fmt.Println("Metadata updated.")
-				}
-			}(slave)
-		}
-		m.SLock.Unlock()
-	}
-}
-
-func updateFileLocations(m *structs.Master) {
-	m.SLock.Lock()
-	updatedFileLocations := make(map[string]map[string]bool)
-	for slave := range m.Slaves {
-		for hash := range slave.Files {
-			if updatedFileLocations[hash] == nil {
-				updatedFileLocations[hash] = make(map[string]bool)
+		f := func(slave *structs.Slave) {
+			ip := slave.GetIP()
+			fmt.Println("Connecting to slave at ", ip, "...")
+			req, err := http.NewRequest("GET", "http://"+ip+"/heartbeat", nil)
+			client := &http.Client{
+				Timeout: time.Second * config.TIMEOUT,
 			}
-			updatedFileLocations[hash][slave.IP] = true
+			resp, err := client.Do(req)
+			if err != nil || resp.StatusCode != 200 {
+				fmt.Println(ip, " is DEAD. Updating metadata.")
+				m.Slaves.DelSlave(slave)
+				fmt.Println("Metadata edited.")
+			} else {
+				fmt.Println(ip + " is alive. Updating metadata.")
+				filesBytes, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				files := make(map[string]bool)
+				err = json.Unmarshal(filesBytes, &files)
+				if err != nil {
+					log.Fatal(err)
+				}
+				slave.SetHashes(files)
+				fmt.Println("Metadata updated.")
+			}
 		}
+
+		m.Slaves.ForEvery(f)
 	}
-	m.FLock.Lock()
-	m.FileLocations = updatedFileLocations
-	m.FLock.Unlock()
-	m.SLock.Unlock()
 }
 
 func FileLocationsUpdater(m *structs.Master) {
 	for {
 		time.Sleep(time.Second * config.FLINTERVAL)
 		fmt.Println("Updating file locations")
-		updateFileLocations(m)
+		newFileLocations := m.Slaves.GenFileLocations()
+		m.FileLocations.Remake(newFileLocations)
 		fmt.Println("File locations updated")
 	}
 }
@@ -97,12 +66,7 @@ func SlaveGarbageCollector(m *structs.Master) {
 		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 		fmt.Println("Sending garbage collection message ...")
 		// prepare hashedContent
-		m.NLock.Lock()
-		hashedContent := make(map[string]bool)
-		for _, v := range m.Namespace {
-			hashedContent[v] = true
-		}
-		m.NLock.Unlock()
+		hashedContent := m.Namespace.LinkedHashes()
 
 		filesBytes, err := json.Marshal(hashedContent)
 		if err != nil {
@@ -110,22 +74,20 @@ func SlaveGarbageCollector(m *structs.Master) {
 		}
 
 		//send over hashedContent to each slave
-		m.SLock.Lock()
-		for slave := range m.Slaves {
-			go func(slave *structs.Slave) {
-				fmt.Println("Sending garbage collector msg to slave at", slave.IP, "...")
-				req, err := http.NewRequest("POST", "http://"+slave.IP+"/garbagecollector", bytes.NewBuffer(filesBytes))
-				if err != nil {
-					log.Fatal(err)
-				}
-				req.Header.Set("Content-Type", "application/json")
-				client := &http.Client{
-					Timeout: time.Second * config.TIMEOUT,
-				}
-				client.Do(req)
-			}(slave)
+		f := func(slave *structs.Slave) {
+			ip := slave.GetIP()
+			fmt.Println("Sending garbage collector msg to slave at", ip, "...")
+			req, err := http.NewRequest("POST", "http://"+ip+"/garbagecollector", bytes.NewBuffer(filesBytes))
+			if err != nil {
+				log.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{
+				Timeout: time.Second * config.TIMEOUT,
+			}
+			client.Do(req)
 		}
-		m.SLock.Unlock()
+		m.Slaves.ForEvery(f)
 	}
 }
 
@@ -135,36 +97,18 @@ func CheckReplica(m *structs.Master) {
 		fmt.Println("Replication cycle starting")
 		toReplicate := make(map[string]map[string]string) // {slaveip: {fileHash: ip1, fileHash2: ip2}}
 
-		m.FLock.Lock()
-		for f, slaveips := range m.FileLocations {
-			length := len(slaveips)
-			if length < config.REPLICAS {
-				replicasLeft := config.REPLICAS - length
-
-				// Choose one slave to be the sender
-				for slaveip := range slaveips {
-					m.SLock.Lock()
-
-					// TODO: select which slave to replicate to
-					for slave := range m.Slaves {
-						if !slaveips[slave.IP] {
-							if toReplicate[slave.IP] == nil {
-								toReplicate[slave.IP] = make(map[string]string)
-							}
-							toReplicate[slave.IP][f] = slaveip
-							replicasLeft -= 1
-						}
-
-						if replicasLeft == 0 {
-							break
-						}
+		for f, slaveips := range m.FileLocations.NeedReplication() {
+			replicasLeft := config.REPLICAS - len(slaveips)
+			for slaveip := range slaveips {
+				for _, ip := range m.Slaves.FreeForReplication(f, replicasLeft) {
+					if toReplicate[ip] == nil {
+						toReplicate[ip] = make(map[string]string)
 					}
-					m.SLock.Unlock()
-					break
+					toReplicate[ip][f] = slaveip
 				}
+				break // Just getting the first slave from the map
 			}
 		}
-		m.FLock.Unlock()
 
 		// Slave get replicas => {fileHash: ip1, fileHash, ip2}
 		for slaveip, toGet := range toReplicate {

@@ -25,9 +25,7 @@ func HandleUpdate(m *structs.Master) http.HandlerFunc {
 
 		for _, qElement := range q {
 			if qElement.Uid == receivedUid {
-				m.NLock.Lock()
-				m.Namespace[qElement.Filename] = receivedHash
-				m.NLock.Unlock()
+				m.Namespace.SetHash(qElement.Filename, receivedHash)
 				break
 			}
 
@@ -40,16 +38,7 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
-		ipArr := make([]string, 0)
-		m.SLock.Lock()
-		for slave := range m.Slaves {
-			// TODO: some way to select the 3 most free slaves
-			ipArr = append(ipArr, slave.IP)
-			if len(ipArr) == 3 {
-				break
-			}
-		}
-		m.SLock.Unlock()
+		ipArr := m.Slaves.GetFree()
 
 		uid := uuid.NewString()
 		ipArr = append(ipArr, uid)
@@ -71,19 +60,11 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
-		w.Header().Set("Content-Type", "application/json")
 		ipArr := make([]string, 0)
 
-		m.NLock.Lock()
-		ipArr = append(ipArr, m.Namespace[filename])
+		ipArr = append(ipArr, m.Namespace.GetHash(filename))
 
-		m.NLock.Unlock()
-
-		m.FLock.Lock()
-		for ip := range m.FileLocations[ipArr[0]] {
-			ipArr = append(ipArr, ip)
-		}
-		m.FLock.Unlock()
+		ipArr = append(ipArr, m.FileLocations.GetIPs(ipArr[0])...)
 
 		data, err := json.Marshal(ipArr)
 		if err != nil {
@@ -112,12 +93,6 @@ func HandleDeleteFile(m *structs.Master) http.HandlerFunc {
 	}
 }
 
-func newSlave(m *structs.Master, slave *structs.Slave) {
-	m.SLock.Lock()
-	m.Slaves[slave] = true
-	m.SLock.Unlock()
-}
-
 func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		filesBytes, err := ioutil.ReadAll(req.Body)
@@ -138,8 +113,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 				break
 			}
 		}
-
-		slave := structs.Slave{IP: slaveIP, Status: structs.UNDERLOADED, Files: files}
-		newSlave(m, &slave)
+		delete(files, "/"+slaveIP)
+		m.Slaves.NewSlave(slaveIP, structs.UNDERLOADED, files)
 	}
 }

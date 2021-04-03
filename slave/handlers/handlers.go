@@ -108,7 +108,6 @@ func HandleReplica(w http.ResponseWriter, r *http.Request) {
 }
 
 func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(helpers.ListDir())
 	if err != nil {
 		log.Fatal(err)

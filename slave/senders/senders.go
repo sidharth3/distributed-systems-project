@@ -23,7 +23,6 @@ func RegisterWithMaster() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
