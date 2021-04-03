@@ -90,6 +90,17 @@ func FileLocationsUpdater(m *structs.Master) {
 	}
 }
 
+
+func DeleteUidFromQueue(m *structs.Master) {
+	for {
+		time.Sleep(time.Second * config.DQINTERVAL)
+		fmt.Println("Deleting uid from Operation Queue")
+		if !m.Queue.Empty() {
+			m.Queue.Dequeue()
+    }
+  }
+}
+      
 // for garbage collector:
 // periodically sends over the values of the namespaces in the Master struct
 func SlaveGarbageCollector(m *structs.Master) {
