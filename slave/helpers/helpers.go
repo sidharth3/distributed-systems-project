@@ -28,6 +28,13 @@ func ListDir() map[string]bool {
 	return filenames
 }
 
+func DeleteFile(filename string){
+	e := os.Remove(StorageDir()+"/"+filename)
+    if e != nil {
+        log.Fatal(e)
+    }
+} 
+
 func MasterIP() string {
 	return os.Args[2]
 }

@@ -93,6 +93,25 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 	}
 }
 
+func HandleDeleteFile(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		filenameBytes, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var filename string
+		err = json.Unmarshal(filenameBytes, &filename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.WriteHeader(http.StatusOK)
+
+		// Check if queue is empty, delete file
+		// Else, append file to queue
+	}
+}
+
 func newSlave(m *structs.Master, slave *structs.Slave) {
 	m.SLock.Lock()
 	m.Slaves[slave] = true

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"ds-proj/client/config"
 	"ds-proj/client/helpers"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 var responses = make(chan int, 3)
@@ -50,6 +52,24 @@ func PostFile(master_ip string, filename string) {
 	}
 	for len(responses) > 0 {
 		<-responses
+	}
+}
+
+func DeleteFile(master_ip string, filename string) {
+	masterURL := "http://" + master_ip + "/delete"
+
+	// Sends a DELETE request to master to delete the file
+	jsonReq, err := json.Marshal(filename)
+	req, err := http.NewRequest(http.MethodDelete, masterURL, bytes.NewBuffer(jsonReq))
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+	res, err := client.Do(req)
+
+	if err != nil || res.StatusCode != http.StatusOK {
+		log.Fatal("File delete has failed.")
+	} else {
+		fmt.Println("Successfully deleted file.")
 	}
 }
 
