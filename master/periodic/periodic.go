@@ -59,6 +59,20 @@ func FileLocationsUpdater(m *structs.Master) {
 	}
 }
 
+<<<<<<< HEAD
+=======
+
+func DeleteUidFromQueue(m *structs.Master) {
+	for {
+		time.Sleep(time.Second * config.DQINTERVAL)
+		fmt.Println("Deleting uid from Operation Queue")
+		if !m.Queue.Empty() {
+			m.Queue.Dequeue()
+    }
+  }
+}
+      
+>>>>>>> 23718734330cfc879c3e2cce57dc9c6dc6f21b81
 // for garbage collector:
 // periodically sends over the values of the namespaces in the Master struct
 func SlaveGarbageCollector(m *structs.Master) {
@@ -66,7 +80,21 @@ func SlaveGarbageCollector(m *structs.Master) {
 		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 		fmt.Println("Sending garbage collection message ...")
 		// prepare hashedContent
+<<<<<<< HEAD
 		hashedContent := m.Namespace.LinkedHashes()
+=======
+		m.NLock.Lock()
+		hashedContent := make(map[string]bool)
+		for _, v := range m.Namespace {
+			hashedContent[v] = true
+		}
+		m.NLock.Unlock()
+		// m.Queue.QLock.Lock()
+		// for _, qitem := range m.Queue.Queue{
+		// 	hashedContent[qitem.Hash] = true
+		// }
+		// m.Queue.QLock.Unlock()
+>>>>>>> 23718734330cfc879c3e2cce57dc9c6dc6f21b81
 
 		filesBytes, err := json.Marshal(hashedContent)
 		if err != nil {
@@ -122,6 +150,7 @@ func CheckReplica(m *structs.Master) {
 				Timeout: time.Second * config.TIMEOUT,
 			}
 			client.Do(req)
+<<<<<<< HEAD
 		}
 	}
 }
@@ -132,6 +161,8 @@ func DeleteUidFromQueue(m *structs.Master) {
 		fmt.Println("Deleting uid from Operation Queue")
 		if !m.Queue.Empty() {
 			m.Queue.Dequeue()
+=======
+>>>>>>> 23718734330cfc879c3e2cce57dc9c6dc6f21b81
 		}
 	}
 }
