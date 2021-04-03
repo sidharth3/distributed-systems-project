@@ -181,3 +181,13 @@ func CheckReplica(m *structs.Master) {
 		}
 	}
 }
+
+func DeleteUidFromQueue(m *structs.Master) {
+	for {
+		time.Sleep(time.Second * config.DQINTERVAL)
+		fmt.Println("Deleting uid from Operation Queue")
+		if !m.Queue.Empty() {
+			m.Queue.Dequeue()
+		}
+	}
+}

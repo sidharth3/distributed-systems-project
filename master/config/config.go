@@ -7,4 +7,5 @@ const (
 	FLINTERVAL  = 10 // Interval between updating FileLocations in seconds
 	GCINTERVAL  = 5  // Interval between sending namespace values to slaves for garbage collection in seconds
 	REPINTERVAL = 15 // Interval between replication cycles
+	DQINTERVAL  = 30 // Timeout to delete the UID from Queue
 )
