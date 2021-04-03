@@ -12,15 +12,9 @@ func main() {
 
 	go periodic.HeartbeatSender(master)
 	go periodic.FileLocationsUpdater(master)
-<<<<<<< HEAD
 	go periodic.SlaveGarbageCollector(master)
 	go periodic.CheckReplica(master)
 	go periodic.DeleteUidFromQueue(master)
-=======
-	go periodic.DeleteUidFromQueue(master)
-	go periodic.SlaveGarbageCollector(master)
-	go periodic.CheckReplica(master)
->>>>>>> 23718734330cfc879c3e2cce57dc9c6dc6f21b81
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
 	http.HandleFunc("/delete", handlers.HandleDeleteFile(master))
