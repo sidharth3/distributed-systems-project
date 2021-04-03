@@ -103,6 +103,11 @@ func SlaveGarbageCollector(m *structs.Master) {
 			hashedContent[v] = true
 		}
 		m.NLock.Unlock()
+		// m.Queue.QLock.Lock()
+		// for _, qitem := range m.Queue.Queue{
+		// 	hashedContent[qitem.Hash] = true
+		// }
+		// m.Queue.QLock.Unlock()
 
 		filesBytes, err := json.Marshal(hashedContent)
 		if err != nil {
