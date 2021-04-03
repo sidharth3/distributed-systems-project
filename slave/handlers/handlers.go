@@ -128,7 +128,6 @@ func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("RECIEVED:", files)
 	//check if in, else delete
 	dirs := helpers.ListDir()
 	for dir := range dirs {
@@ -137,5 +136,4 @@ func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
 			helpers.DeleteFile(dir)
 		}
 	}
-
 }

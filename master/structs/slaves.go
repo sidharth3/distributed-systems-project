@@ -93,6 +93,7 @@ func (s *Slaves) FreeForReplication(hash string, numNeeded int) []string {
 			break
 		}
 	}
+	defer s.rwLock.RUnlock()
 	return ips
 }
 
