@@ -17,8 +17,6 @@ import (
 	"time"
 )
 
-var responses = make(chan int, 3)
-
 func GetFile(master_ip string, filename string) {
 	// Sends a GET request to the master for a list of slave ips with that filename
 	ipArr := getFileMaster(master_ip, filename)
@@ -43,15 +41,6 @@ func PostFile(master_ip string, filename string) {
 	// fmt.Println(uid)
 	for _, ip := range ipArr {
 		postFileSlave(ip, filename, uid)
-	}
-
-	if len(responses) < (len(ipArr) - 1) {
-		fmt.Println("Upload operation Failed.")
-	} else {
-		fmt.Println("Upload operation Success.")
-	}
-	for len(responses) > 0 {
-		<-responses
 	}
 }
 
@@ -179,7 +168,7 @@ func postFileSlave(slave_ip string, filename string, uid string) (err error) {
 
 	// only for verbose
 	if res.StatusCode == http.StatusOK {
-		responses <- 1
+		fmt.Println("Succeeded sending to slave")
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err

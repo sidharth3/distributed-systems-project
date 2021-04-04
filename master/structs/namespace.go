@@ -20,6 +20,12 @@ func (n *Namespace) GetHash(filename string) string {
 	return n.namespace[filename]
 }
 
+func (n *Namespace) DelFile(filename string) {
+	n.rwLock.Lock()
+	delete(n.namespace, filename)
+	n.rwLock.Unlock()
+}
+
 func (n *Namespace) LinkedHashes() map[string]bool {
 	linkedHashes := make(map[string]bool)
 	n.rwLock.RLock()

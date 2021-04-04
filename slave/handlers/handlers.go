@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"ds-proj/slave/helpers"
+	"ds-proj/slave/senders"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,7 +30,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(fileHeader.Filename)
 	fmt.Println(uid)
 	data := url.Values{"filename": {fileHeader.Filename}, "uid": {fmt.Sprint(uid)}}
-	ForceUpdateMaster(data)
+	senders.ForceUpdateMaster(data)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -61,16 +62,6 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 
 	// return that we have successfully uploaded our file
 	fmt.Fprintf(w, "Successfully Uploaded File\n")
-}
-
-func ForceUpdateMaster(data url.Values) {
-	//Questions - does forceUpdate need to send directory also or new upload information only?
-	master_URL := "http://127.0.0.1:8080/update"
-	res, err := http.PostForm(master_URL, data)
-	fmt.Println(res.StatusCode)
-	if err != nil || res.StatusCode != 200 {
-		fmt.Println("File upload has failed.")
-	}
 }
 
 func HandleReplica(w http.ResponseWriter, r *http.Request) {

@@ -1,55 +1,67 @@
 package structs
 
 import (
-	"fmt"
 	"sync"
 )
 
 type OperationQueue struct {
-	Queue []QueueItem
-	QLock *sync.RWMutex
+	rwLock     *sync.RWMutex
+	uids       []string              // UIDs in order of request [uid1, uid2, uid3]
+	queueItems map[string]*QueueItem // Map from UID to QueueItem {uid1 : QueueItem1, uid2 : QueueItem2}
 }
 
 type QueueItem struct {
-	Uid      string
 	Filename string
 	Hash     string
+	timedOut bool
 }
 
-func (c *OperationQueue) Enqueue(qItem QueueItem) {
-	c.QLock.Lock()
-	defer c.QLock.Unlock()
-	c.Queue = append(c.Queue, qItem)
+func (c *OperationQueue) Enqueue(uid string, filename string) {
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
+	c.uids = append(c.uids, uid)
+	c.queueItems[uid] = &QueueItem{filename, "", false}
 }
 
-func (c *OperationQueue) Dequeue() error {
-	if len(c.Queue) > 0 {
-		c.QLock.Lock()
-		defer c.QLock.Unlock()
-		c.Queue = c.Queue[1:]
-		return nil
+func (c *OperationQueue) Dequeue() []*QueueItem {
+	toCommit := make([]*QueueItem, 0)
+	c.rwLock.Lock()
+	newFront := len(c.uids)
+	for i, uid := range c.uids {
+		if c.queueItems[uid].Hash != "" { // If hash exists means its confirmed by slave
+			toCommit = append(toCommit, c.queueItems[uid])
+			delete(c.queueItems, uid)
+		} else if c.queueItems[uid].timedOut {
+			delete(c.queueItems, uid)
+		} else {
+			newFront = i
+			break
+		}
 	}
-	return fmt.Errorf("Queue is empty")
+	c.uids = c.uids[newFront:]
+	defer c.rwLock.Unlock()
+	return toCommit
 }
 
-func (c *OperationQueue) Front() (QueueItem, error) {
-	if len(c.Queue) > 0 {
-		c.QLock.Lock()
-		defer c.QLock.Unlock()
-		return c.Queue[0], nil
+func (c *OperationQueue) Timeout(uid string) {
+	c.rwLock.Lock()
+	if c.queueItems[uid] != nil {
+		c.queueItems[uid].timedOut = true
 	}
-	var empty QueueItem
-	return empty, fmt.Errorf("Queue is empty")
+	c.rwLock.Unlock()
 }
 
-func (c *OperationQueue) Size() int {
-	return len(c.Queue)
+func (c *OperationQueue) Confirm(uid string, hash string) {
+	c.rwLock.Lock()
+	c.queueItems[uid].Hash = hash
+	c.rwLock.Unlock()
 }
 
-func (c *OperationQueue) Empty() bool {
-	return len(c.Queue) == 0
-}
-
-func (c *OperationQueue) ReturnObj() []QueueItem {
-	return c.Queue
+func (c *OperationQueue) FirstUID() string {
+	c.rwLock.RLock()
+	defer c.rwLock.RUnlock()
+	if len(c.uids) == 0 {
+		return ""
+	}
+	return c.uids[0]
 }

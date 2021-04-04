@@ -14,7 +14,6 @@ func main() {
 	go periodic.FileLocationsUpdater(master)
 	go periodic.SlaveGarbageCollector(master)
 	go periodic.CheckReplica(master)
-	go periodic.DeleteUidFromQueue(master)
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
 	http.HandleFunc("/delete", handlers.HandleDeleteFile(master))

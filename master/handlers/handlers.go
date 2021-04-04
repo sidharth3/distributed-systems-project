@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"ds-proj/master/config"
 	"ds-proj/master/structs"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -21,15 +23,8 @@ func HandleUpdate(m *structs.Master) http.HandlerFunc {
 
 		receivedHash := req.Form["filename"][0]
 		receivedUid := strings.Trim(fmt.Sprint(req.Form["uid"][0]), "[]")
-		q := m.Queue.ReturnObj()
-
-		for _, qElement := range q {
-			if qElement.Uid == receivedUid {
-				m.Namespace.SetHash(qElement.Filename, receivedHash)
-				break
-			}
-
-		}
+		m.Queue.Confirm(receivedUid, receivedHash)
+		m.Commit(receivedUid)
 	}
 }
 
@@ -38,20 +33,24 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
-		ipArr := m.Slaves.GetFree()
-
 		uid := uuid.NewString()
+		m.Queue.Enqueue(uid, filename)
+
+		ipArr := m.Slaves.GetFree()
 		ipArr = append(ipArr, uid)
-
-		qItem := structs.QueueItem{Uid: uid, Filename: filename, Hash: ""}
-
-		m.Queue.Enqueue(qItem)
 
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
 		}
 		w.Write(data)
+
+		// Handle queue timeouts
+		go func() {
+			<-time.After(time.Second * config.DQTIMEOUT)
+			m.Queue.Timeout(uid)
+			m.Commit(uid)
+		}()
 	}
 }
 
@@ -86,10 +85,12 @@ func HandleDeleteFile(m *structs.Master) http.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 		}
-		w.WriteHeader(http.StatusOK)
 
-		// Check if queue is empty, delete file
-		// Else, append file to queue
+		uid := uuid.NewString()
+		m.Queue.Enqueue(uid, filename)
+		m.Queue.Confirm(uid, "delete")
+		m.Commit(uid)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
