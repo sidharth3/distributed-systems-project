@@ -66,7 +66,7 @@ func SlaveGarbageCollector(m *structs.Master) {
 		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 		fmt.Println("Sending garbage collection message ...")
 		// prepare hashedContent
-		hashedContent := m.Namespace.LinkedHashes()
+		hashedContent := m.UnlinkedHashes()
 
 		filesBytes, err := json.Marshal(hashedContent)
 		if err != nil {
@@ -123,5 +123,17 @@ func CheckReplica(m *structs.Master) {
 			}
 			client.Do(req)
 		}
+	}
+}
+
+func MasterGarbageCollector(m *structs.Master) {
+
+	for {
+		time.Sleep(time.Second * config.MGCINTERVAL)
+		fmt.Println("Master Garbage Collection Cycle Starting")
+		unlinked := m.UnlinkedNamespace()
+		unlinked = m.GCCount.Cycle(unlinked)
+		m.Namespace.CollectGarbage(unlinked)
+		fmt.Println("Master Garbage Collection Cycle Ended")
 	}
 }

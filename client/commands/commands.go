@@ -11,9 +11,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
-	"strings"
 	"time"
 )
 
@@ -29,18 +27,16 @@ func GetFile(master_ip string, filename string) {
 
 func PostFile(master_ip string, filename string) {
 	// Sends a GET request to the master for a list of available slave ips
-	ipArr := getSlaveIPsMaster(master_ip, filename) // pass filename to master
+	f := helpers.OpenFile(path.Join(helpers.StorageDir(), filename))
+	hashValue := helpers.HashFileContent(f)
+	f.Close()
+
+	ipArr := getSlaveIPsMaster(master_ip, filename, hashValue) // pass filename to master
 
 	// Sends a POST request to the slave to upload the file content
 	// sends file to all alive slaves
-	// fmt.Println(ipArr)
-	//Now, ipArr's last element is the uid of the operation so must remove the last slice.
-
-	uid := ipArr[len(ipArr)-1]
-	ipArr = ipArr[:len(ipArr)-1]
-	// fmt.Println(uid)
 	for _, ip := range ipArr {
-		postFileSlave(ip, filename, uid)
+		postFileSlave(ip, filename, hashValue)
 	}
 }
 
@@ -100,9 +96,9 @@ func getFileSlave(slave_ip string, hashValue string) {
 
 }
 
-func getSlaveIPsMaster(master_ip string, filename string) []string {
+func getSlaveIPsMaster(master_ip string, filename string, hash string) []string {
 	// Sends a GET request to master for available slave ips
-	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + filename)
+	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + filename + "&hash=" + hash)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -122,59 +118,35 @@ func getSlaveIPsMaster(master_ip string, filename string) []string {
 	return ipArr
 }
 
-func postFileSlave(slave_ip string, filename string, uid string) (err error) {
+func postFileSlave(slave_ip string, filename string, hash string) {
 	slaveURL := "http://" + slave_ip + "/upload"
 
 	f := helpers.OpenFile(path.Join(helpers.StorageDir(), filename))
-	hashValue := helpers.HashFileContent(f)
-
-	// prepare the reader instances to encode
-	values := map[string]io.Reader{
-		"filename": helpers.OpenFile(path.Join(helpers.StorageDir(), filename)),
-		"uid":      strings.NewReader(uid),
-	}
 
 	// Prepare a form that you will submit to the URL
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	for key, r := range values {
-		var fw io.Writer
-		if x, ok := r.(io.Closer); ok {
-			defer x.Close()
-		}
-		// Add file
-		if _, ok := r.(*os.File); ok {
-			if fw, err = w.CreateFormFile(key, hashValue); err != nil {
-				return err
-			}
-		} else { // Add other fields
-			if fw, err = w.CreateFormField(key); err != nil {
-				return err
-			}
-		}
-		if _, err = io.Copy(fw, r); err != nil {
-			return err
+
+	if fw, err := w.CreateFormFile("filename", hash); err != nil {
+		log.Fatal(err)
+	} else {
+		if _, err := io.Copy(fw, f); err != nil {
+			log.Fatal(err)
 		}
 	}
 	w.Close()
+	f.Close()
 
 	// Post request
 	res, err := http.Post(slaveURL, w.FormDataContentType(), &b)
 
 	if err != nil || res.StatusCode != 200 {
 		fmt.Println("File upload has failed.")
-		return err
+		log.Fatal(err)
 	}
 
 	// only for verbose
 	if res.StatusCode == http.StatusOK {
 		fmt.Println("Succeeded sending to slave")
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-		outputString := string(body)
-		fmt.Println(outputString)
 	}
-	return
 }

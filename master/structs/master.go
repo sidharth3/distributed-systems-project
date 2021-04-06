@@ -6,27 +6,40 @@ type Master struct {
 	Slaves        *Slaves
 	FileLocations *FileLocations
 	Namespace     *Namespace
-	Queue         *OperationQueue
+	GCCount       *GCCount
 }
 
 func InitMaster() *Master {
 	slaves := &Slaves{&sync.RWMutex{}, make(map[*Slave]bool)}
 	fileLocations := &FileLocations{&sync.RWMutex{}, make(map[string]map[string]bool)}
 	namespace := &Namespace{&sync.RWMutex{}, make(map[string]string)}
-	queue := &OperationQueue{&sync.RWMutex{}, make([]string, 0), make(map[string]*QueueItem)}
-	return &Master{slaves, fileLocations, namespace, queue}
+	gccount := &GCCount{&sync.RWMutex{}, make(map[string]int)}
+	return &Master{slaves, fileLocations, namespace, gccount}
 }
 
-func (m *Master) Commit(uid string) {
-	if m.Queue.FirstUID() == uid {
-		commits := m.Queue.Dequeue()
-		// Apply commits in queue order
-		for _, item := range commits {
-			if item.Hash == "delete" {
-				m.Namespace.DelFile(item.Filename)
-			} else {
-				m.Namespace.SetHash(item.Filename, item.Hash)
-			}
+func (m *Master) UnlinkedHashes() map[string]bool {
+	unlinked := make(map[string]bool)
+	linked := m.Namespace.LinkedHashes()
+	m.FileLocations.rwLock.RLock()
+	for hash := range m.FileLocations.fileLocations {
+		if !linked[hash] {
+			unlinked[hash] = true
 		}
 	}
+	defer m.FileLocations.rwLock.RUnlock()
+	return unlinked
+}
+
+func (m *Master) UnlinkedNamespace() map[string]bool {
+	unlinked := make(map[string]bool)
+	m.Namespace.rwLock.RLock()
+	m.FileLocations.rwLock.RLock()
+	for filename, hash := range m.Namespace.namespace {
+		if m.FileLocations.fileLocations[hash] == nil {
+			unlinked[filename] = true
+		}
+	}
+	defer m.FileLocations.rwLock.RUnlock()
+	defer m.Namespace.rwLock.RUnlock()
+	return unlinked
 }

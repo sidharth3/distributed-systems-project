@@ -35,3 +35,11 @@ func (n *Namespace) LinkedHashes() map[string]bool {
 	defer n.rwLock.RUnlock()
 	return linkedHashes
 }
+
+func (n *Namespace) CollectGarbage(unlinked map[string]bool) {
+	n.rwLock.Lock()
+	for filename := range unlinked {
+		delete(n.namespace, filename)
+	}
+	n.rwLock.Unlock()
+}

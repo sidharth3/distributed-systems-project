@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"ds-proj/slave/helpers"
-	"ds-proj/slave/senders"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -25,12 +23,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	// Parse our multipart form, 10 << 20 specifies a maximum upload of 10 MB files
 	r.ParseMultipartForm(10 << 20)
 	file, fileHeader, err := r.FormFile("filename")
-	// uid, err := r.FormFile("uid")
-	uid := fmt.Sprint(r.Form["uid"])
 	fmt.Println(fileHeader.Filename)
-	fmt.Println(uid)
-	data := url.Values{"filename": {fileHeader.Filename}, "uid": {fmt.Sprint(uid)}}
-	senders.ForceUpdateMaster(data)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -119,10 +112,10 @@ func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//check if in, else delete
+	//Delete if in
 	dirs := helpers.ListDir()
 	for dir := range dirs {
-		if !files[dir] {
+		if files[dir] {
 			fmt.Println("File", dir, "is no longer referenced in master, and will be deleted.")
 			helpers.DeleteFile(dir)
 		}
