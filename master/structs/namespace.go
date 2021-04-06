@@ -1,6 +1,10 @@
 package structs
 
-import "sync"
+import (
+	"fmt"
+	"strings"
+	"sync"
+)
 
 // foo/bar.txt -> asdf332789asfj, purely controlled by client
 type Namespace struct {
@@ -24,6 +28,25 @@ func (n *Namespace) DelFile(filename string) {
 	n.rwLock.Lock()
 	delete(n.namespace, filename)
 	n.rwLock.Unlock()
+}
+
+func (n *Namespace) GetFile(path string) []string {
+	files := make([]string, 0)
+	n.rwLock.Lock()
+	if path == "" {
+		for filename := range n.namespace {
+			files = append(files, filename)
+		}
+	} else {
+		for filename := range n.namespace {
+			fmt.Println(strings.SplitAfter(filename, path))
+			if strings.SplitAfter(filename, path)[0] == path && strings.SplitAfter(filename, path)[1][0] == '/' {
+				files = append(files, strings.Split(filename, path)[1])
+			}
+		}
+	}
+	n.rwLock.Unlock()
+	return files
 }
 
 func (n *Namespace) LinkedHashes() map[string]bool {

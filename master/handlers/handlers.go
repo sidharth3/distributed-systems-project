@@ -3,6 +3,7 @@ package handlers
 import (
 	"ds-proj/master/structs"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -61,6 +62,22 @@ func HandleDeleteFile(m *structs.Master) http.HandlerFunc {
 		}
 
 		m.Namespace.DelFile(filename)
+	}
+}
+
+func HandleListDir(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		req.ParseForm()
+		path := req.Form["ls"][0]
+		fmt.Println("Path", path)
+
+		file := m.Namespace.GetFile(path)
+
+		data, err := json.Marshal(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.Write(data)
 	}
 }
 

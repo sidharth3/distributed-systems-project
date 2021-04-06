@@ -11,7 +11,6 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"path"
 	"time"
 )
 
@@ -21,13 +20,12 @@ func GetFile(master_ip string, filename string) {
 
 	// Sends a GET request to the slave for the file content
 	// Currently just using first ip returned
-	// fmt.Println(ipArr)
 	getFileSlave(ipArr[1], ipArr[0])
 }
 
 func PostFile(master_ip string, filename string) {
 	// Sends a GET request to the master for a list of available slave ips
-	f := helpers.OpenFile(path.Join(helpers.StorageDir(), filename))
+	f := helpers.OpenFile(filename)
 	hashValue := helpers.HashFileContent(f)
 	f.Close()
 
@@ -56,6 +54,25 @@ func DeleteFile(master_ip string, filename string) {
 	} else {
 		fmt.Println("Successfully deleted file.")
 	}
+}
+
+func ListDir(master_ip string, path string) {
+	res, err := http.Get("http://" + master_ip + "/ls?ls=" + path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dir := make([]string, 0)
+	err = json.Unmarshal(body, &dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(dir)
 }
 
 func getFileMaster(master_ip string, filename string) []string {
@@ -121,7 +138,7 @@ func getSlaveIPsMaster(master_ip string, filename string, hash string) []string 
 func postFileSlave(slave_ip string, filename string, hash string) {
 	slaveURL := "http://" + slave_ip + "/upload"
 
-	f := helpers.OpenFile(path.Join(helpers.StorageDir(), filename))
+	f := helpers.OpenFile(filename)
 
 	// Prepare a form that you will submit to the URL
 	var b bytes.Buffer

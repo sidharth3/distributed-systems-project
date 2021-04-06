@@ -18,6 +18,7 @@ func main() {
 
 	http.HandleFunc("/file", handlers.HandleFile(master))
 	http.HandleFunc("/delete", handlers.HandleDeleteFile(master))
+	http.HandleFunc("/ls", handlers.HandleListDir(master))
 	http.HandleFunc("/slaveips", handlers.HandleSlaveIPs(master))
 	http.HandleFunc("/register", handlers.HandleNewSlave(master))
 	http.ListenAndServe("127.0.0.1:8080", nil)
