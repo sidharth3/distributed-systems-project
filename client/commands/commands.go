@@ -72,7 +72,10 @@ func ListDir(master_ip string, path string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(dir)
+
+	for _, filename := range dir {
+		fmt.Println(filename)
+	}
 }
 
 func getFileMaster(master_ip string, filename string) []string {
