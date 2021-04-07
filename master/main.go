@@ -11,6 +11,7 @@ func main() {
 	master := test.SimpleCase()
 
 	go periodic.HeartbeatSender(master)
+	go periodic.LoadChecker(master)
 	go periodic.FileLocationsUpdater(master)
 	go periodic.SlaveGarbageCollector(master)
 	go periodic.CheckReplica(master)

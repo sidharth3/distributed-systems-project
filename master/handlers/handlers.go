@@ -102,6 +102,6 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 			}
 		}
 		delete(files, "/"+slaveIP)
-		m.Slaves.NewSlave(slaveIP, structs.UNDERLOADED, files)
+		m.Slaves.NewSlave(slaveIP, 0, files)
 	}
 }

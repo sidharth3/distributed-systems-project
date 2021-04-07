@@ -10,7 +10,7 @@ type Master struct {
 }
 
 func InitMaster() *Master {
-	slaves := &Slaves{&sync.RWMutex{}, make(map[*Slave]bool)}
+	slaves := &Slaves{&sync.RWMutex{}, make(map[*Slave]bool), make([]*Slave, 0)}
 	fileLocations := &FileLocations{&sync.RWMutex{}, make(map[string]map[string]bool)}
 	namespace := &Namespace{&sync.RWMutex{}, make(map[string]string)}
 	gccount := &GCCount{&sync.RWMutex{}, make(map[string]int)}

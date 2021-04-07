@@ -2,35 +2,44 @@ package structs
 
 import (
 	"ds-proj/master/config"
+	"sort"
 	"sync"
 )
 
 type Slaves struct {
-	rwLock *sync.RWMutex
-	slaves map[*Slave]bool
+	rwLock          *sync.RWMutex
+	slaves          map[*Slave]bool
+	sortedSlaveLoad []*Slave
 }
 
 // Updated whenever master receives heartbeat from slave
 type Slave struct {
 	rwLock *sync.RWMutex
 	ip     string
-	status Status
+	load   int
 	hashes map[string]bool // hashes that a slave has
 }
 
-// Status is an enumerated type
-type Status string
-
-const (
-	OVERLOADED  Status = "Current load exceeds threshold"
-	UNDERLOADED Status = "Current load does not exceed threshold"
-)
+// the master periodically maintains a sorted load of all its slaves
+func (s *Slaves) SortLoad() {
+	slaveArr := make([]*Slave, 0, len(s.slaves))
+	for slave := range s.slaves {
+		slaveArr = append(slaveArr, slave)
+	}
+	sort.Slice(slaveArr, func(i, j int) bool {
+		if a, b := slaveArr[i].GetLoad(), slaveArr[j].GetLoad(); a != b {
+			return a < b
+		}
+		return slaveArr[i].GetIP() < slaveArr[j].GetIP()
+	})
+	s.sortedSlaveLoad = slaveArr
+}
 
 // TODO: some way to select the most free slaves
 func (s *Slaves) GetFree() []string {
 	ips := make([]string, 0)
 	s.rwLock.RLock()
-	for slave := range s.slaves {
+	for _, slave := range s.sortedSlaveLoad {
 		ips = append(ips, slave.GetIP())
 		if len(ips) >= config.REPLICAS {
 			break
@@ -40,8 +49,8 @@ func (s *Slaves) GetFree() []string {
 	return ips
 }
 
-func (s *Slaves) NewSlave(ip string, status Status, hashes map[string]bool) {
-	newSlave := &Slave{&sync.RWMutex{}, ip, status, hashes}
+func (s *Slaves) NewSlave(ip string, load int, hashes map[string]bool) {
+	newSlave := &Slave{&sync.RWMutex{}, ip, load, hashes}
 	s.rwLock.Lock()
 	s.slaves[newSlave] = true
 	s.rwLock.Unlock()
@@ -102,6 +111,14 @@ func (s *Slave) GetIP() string {
 	// s.rwLock.RLock()
 	// defer s.rwLock.RUnlock()
 	return s.ip
+}
+
+func (s *Slave) SetLoad(load int) {
+	s.load = load
+}
+
+func (s *Slave) GetLoad() int {
+	return s.load
 }
 
 func (s *Slave) SetHashes(hashes map[string]bool) {
