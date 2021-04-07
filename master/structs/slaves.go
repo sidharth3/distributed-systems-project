@@ -35,7 +35,6 @@ func (s *Slaves) SortLoad() {
 	s.sortedSlaveLoad = slaveArr
 }
 
-// TODO: some way to select the most free slaves
 func (s *Slaves) GetFree() []string {
 	ips := make([]string, 0)
 	s.rwLock.RLock()
@@ -91,7 +90,7 @@ func (s *Slaves) GenFileLocations() map[string]map[string]bool {
 func (s *Slaves) FreeForReplication(hash string, numNeeded int) []string {
 	ips := make([]string, 0)
 	s.rwLock.RLock()
-	for slave := range s.slaves {
+	for _, slave := range s.sortedSlaveLoad {
 		slave.rwLock.RLock()
 		if !slave.hashes[hash] {
 			ips = append(ips, slave.ip)
