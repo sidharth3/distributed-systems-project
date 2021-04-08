@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -45,6 +46,41 @@ func HeartbeatSender(m *structs.Master) {
 			}
 		}
 
+		m.Slaves.ForEvery(f)
+	}
+}
+
+func LoadChecker(m *structs.Master) {
+	for {
+		time.Sleep(time.Second * config.LDINTERVAL)
+		fmt.Println("Checking loads...")
+		f := func(slave *structs.Slave) {
+			ip := slave.GetIP()
+			fmt.Println("Sending load msg to slave at", ip, "...")
+			req, err := http.NewRequest("GET", "http://"+ip+"/load", nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+			client := &http.Client{
+				Timeout: time.Second * config.TIMEOUT,
+			}
+			resp, err := client.Do(req)
+
+			if err != nil || resp.StatusCode != 200 {
+				fmt.Println(ip, " is DEAD. Updating metadata.")
+				m.Slaves.DelSlave(slave)
+				fmt.Println("Metadata edited.")
+			} else {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Fatal(err)
+				}
+				load, _ := strconv.Atoi(string(body))
+				slave.SetLoad(load)
+				fmt.Printf("IP address %v: load %v", ip, load)
+			}
+		}
+		m.Slaves.SortLoad()
 		m.Slaves.ForEvery(f)
 	}
 }

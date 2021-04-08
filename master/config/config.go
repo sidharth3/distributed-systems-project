@@ -8,5 +8,6 @@ const (
 	GCINTERVAL  = 5                // Interval between sending namespace values to slaves for garbage collection in seconds
 	REPINTERVAL = 15               // Interval between replication cycles
 	MGCINTERVAL = 35               // Interval between master garbage collection cycles. Guarantee that namespace entries are at least MGCINTERVAL seconds old before being removed. MGCINTERVAL > HBINTERVAL + FLINTERVAL + 2*client http timeout + master http timeout
+	LDINTERVAL  = 10               // Interval between load checking in seconds
 	IP          = "127.0.0.1:8080" // IP address for the master
 )

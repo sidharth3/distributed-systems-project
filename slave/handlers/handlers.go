@@ -51,8 +51,6 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Uploaded File: %v\n", fileHeader.Filename)
 	fmt.Printf("File Size: %v\n", fileHeader.Size)
 
-	// TODO: need to inform master first?
-
 	// return that we have successfully uploaded our file
 	fmt.Fprintf(w, "Successfully Uploaded File\n")
 }
@@ -91,13 +89,20 @@ func HandleReplica(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func LoadHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := json.Marshal(helpers.GetLoad())
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Write(data)
+}
+
 func HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(helpers.ListDir())
 	if err != nil {
 		log.Fatal(err)
 	}
 	w.Write(data)
-
 }
 
 func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
