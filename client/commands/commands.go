@@ -11,25 +11,59 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 )
 
-func GetFile(master_ip string, filename string) {
+func DownloadFile(master_ip string, remote_filename string, local_filename string) {
+
+	ipArr := getFileMaster(master_ip, remote_filename)
+
+	res, err := http.Get("http://" + ipArr[1] + "/file?file=" + ipArr[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	if _, err := os.Stat(filepath.Dir(local_filename)); os.IsNotExist(err) {
+		os.Mkdir(filepath.Dir(local_filename), 0700)
+	}
+
+	out, err := os.Create(local_filename)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer out.Close()
+
+	if res.StatusCode == http.StatusOK {
+		_, err = io.Copy(out, res.Body)
+		fmt.Println("Downloaded file.")
+	}
+
+}
+
+func GetFile(master_ip string, remote_filename string) {
 	// Sends a GET request to the master for a list of slave ips with that filename
-	ipArr := getFileMaster(master_ip, filename)
+	ipArr := getFileMaster(master_ip, remote_filename)
 
 	// Sends a GET request to the slave for the file content
 	// Currently just using first ip returned
 	getFileSlave(ipArr[1], ipArr[0])
+
 }
 
-func PostFile(master_ip string, filename string) {
+func PostFile(master_ip string, filename string, remote_filename string) {
 	// Sends a GET request to the master for a list of available slave ips
 	f := helpers.OpenFile(filename)
 	hashValue := helpers.HashFileContent(f)
 	f.Close()
 
-	ipArr := getSlaveIPsMaster(master_ip, filename, hashValue) // pass filename to master
+	ipArr := getSlaveIPsMaster(master_ip, url.QueryEscape(remote_filename), hashValue) // pass remote filename to master
 
 	// Sends a POST request to the slave to upload the file content
 	// sends file to all alive slaves
@@ -116,9 +150,9 @@ func getFileSlave(slave_ip string, hashValue string) {
 
 }
 
-func getSlaveIPsMaster(master_ip string, filename string, hash string) []string {
+func getSlaveIPsMaster(master_ip string, remote_filename string, hash string) []string {
 	// Sends a GET request to master for available slave ips
-	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + filename + "&hash=" + hash)
+	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + remote_filename + "&hash=" + hash)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,7 +10,7 @@ import (
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please specify commands to be performed.")
-		fmt.Println("Available gfs commands are: -cat, -get, -put, -rm, -ls, -mkdir")
+		fmt.Println("Available dfs commands are: -cat, -get, -put, -rm, -ls, -mkdir")
 		os.Exit(0)
 	}
 
@@ -27,23 +27,22 @@ func main() {
 			commands.GetFile(os.Args[2], os.Args[3])
 		}
 	case "-get":
-		// TODO: ./dfs -get 127.0.0.1:8080 /gfspath/to/example.txt localpath/to
+		// ./dfs -get 127.0.0.1:8080 /gfspath/to/example.txt localpath/to - DONE
 		if len(os.Args) < 5 {
-			fmt.Println("Missing three args. get requires masterIP, gfs filepath and local filepath.")
+			fmt.Println("Missing three args. get requires masterIP, dfs filepath and local filepath.")
 			os.Exit(0)
 		} else {
-			fmt.Println("Have not implemented.")
-			os.Exit(0)
+			commands.DownloadFile(os.Args[2], os.Args[3], os.Args[4])
 		}
 	case "-put":
 		// example command: ./dfs -put 127.0.0.1:8080 example.txt
-		// TODO: ./dfs -put 127.0.0.1:8080 example.txt /gfspath/to
+		// ./dfs -put 127.0.0.1:8080 example.txt /gfspath/to - DONE
 		if len(os.Args) < 4 {
-			fmt.Println("Missing two args. put requires masterIP and file name.")
+			fmt.Println("Missing args. put requires masterIP, file name and dfs destination path.")
 			os.Exit(0)
 		} else {
 			// you need to manually create a file in your own directory first
-			commands.PostFile(os.Args[2], os.Args[3])
+			commands.PostFile(os.Args[2], os.Args[3], os.Args[4])
 		}
 	case "-rm":
 		if len(os.Args) < 4 {
