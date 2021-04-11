@@ -9,7 +9,6 @@ import (
 	"net/http"
 )
 
-func 
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
@@ -68,7 +67,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		if len(masterList)>0{
 			// send this information to all the other masters
 			for _,masterip := range masterList{
-				// req, err := http.NewRequest("POST", "http://"+masterip+"/master/modifynamespace", bytes.NewBuffer(filesBytes))
+				// req, err := http.NewRequest("POST", "http://"+masterip+"/master/delfile", bytes.NewBuffer(filesBytes)) //send over the string filename
 				// if err != nil {
 				// 	log.Fatal(err)
 				// }
@@ -135,8 +134,9 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 
 func MasterHandleNamespace(m *structs.Master) http.HandlerFunc{
 	return func(w http.ResponseWriter, req *http.Request) {
-		fmt.Println("Sending Namespace over...", m.Namespace.namespace)
-		data, err := json.Marshal(m.Namespace.namespace)
+		newNS := m.Namespace.ReturnNamespace()
+		fmt.Println("Sending Namespace over...", newNS)
+		data, err := json.Marshal(newNS)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -144,24 +144,23 @@ func MasterHandleNamespace(m *structs.Master) http.HandlerFunc{
 	}
 }
 
-func MasterModifyHandleNamespace(m *structs.Master) http.HandlerFunc{
+func MasterHandleDelFile(m *structs.Master) http.HandlerFunc{
 	return func(w http.ResponseWriter, req *http.Request) {
-		fmt.Println("Receive new namespace...")
+		fmt.Println("Receive filename to delete...")
 		filesBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		w.WriteHeader(http.StatusOK)
-		files := make(map[string]string)
-		err = json.Unmarshal(filesBytes, &files)
+		var filename string
+		err = json.Unmarshal(filesBytes, &filename)
 		if err != nil {
 			log.Fatal(err)
 		}
-		// change namespace
-		m.Namespace.rwLock.Lock()
-		m.Namespace.namespace = files
-		m.Namespace.rwLock.unlock()
+		// del filename from namespace
+		m.Namespace.DelFile(filename)
+		
 		// reply back
 		reply, err := json.Marshal("OKAY")
 		if err != nil {

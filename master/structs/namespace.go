@@ -66,3 +66,8 @@ func (n *Namespace) CollectGarbage(unlinked map[string]bool) {
 	}
 	n.rwLock.Unlock()
 }
+
+// for master replica------------
+func (n *Namespace) ReturnNamespace() map[string] string{
+	return n.namespace
+}
