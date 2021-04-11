@@ -47,6 +47,15 @@ func DeleteFile(filename string) {
 	}
 }
 
-func MasterIP() string {
-	return os.Args[2]
+// func MasterIP() string {
+// 	return os.Args[2]
+// }
+
+// MasterIP() returns a []str{} of master ips
+func MasterIP() []string {
+	iplist := make([]string, len(os.Args)-2)
+	for i := 2; i<len(os.Args);i++{
+		iplist = append(iplist, os.Args[i])
+	}
+	return iplist
 }
