@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"bytes"
+	"ds-proj/master/config"
 	"ds-proj/master/structs"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 )
 
 
@@ -49,6 +53,39 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 	}
 }
 
+func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string){
+	fmt.Println("send modified namespace to",masterip)
+	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		log.Println("Failed to reach master for reply.",masterip)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var reply string
+	err = json.Unmarshal(body, &reply)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if reply =="REPLY"{ // check that the reply is OKAY
+		fmt.Println("Successfully get reply from master.",masterip)
+		checkreplyLock.Lock()
+		(*checkreply)[id] = 1
+		checkreplyLock.Unlock()
+	}
+}
+
 func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		filenameBytes, err := ioutil.ReadAll(req.Body)
@@ -64,29 +101,68 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 
 		m.Namespace.DelFile(filename)
 
-		if len(masterList)>0{
-			// send this information to all the other masters
-			for _,masterip := range masterList{
-				// req, err := http.NewRequest("POST", "http://"+masterip+"/master/delfile", bytes.NewBuffer(filesBytes)) //send over the string filename
-				// if err != nil {
-				// 	log.Fatal(err)
-				// }
-			
-				// client := &http.Client{
-				// 	Timeout: time.Second * config.TIMEOUT,
-				// }
-			
-				// resp, err := client.Do(req)
-				// if err != nil || resp.StatusCode != 200 {
-				// 	// log.Fatal("Failed to register with master.",masterip)
-				// 	log.Println("Failed to register with master.",masterip)
-				// } else {
-				// 	fmt.Println("Successfully registered with master.",masterip)
-				// 	checkReg[id] = 1
-				// }
-				fmt.Println("send modified namespace to",masterip)
-			}
+		filenameBytes2, err := json.Marshal(filename)
+		if err != nil {
+			log.Fatal()
 		}
+
+		checkreply := make([]int, len(masterList))
+		for i :=0 ; i<len(masterList);i++{
+			checkreply = append(checkreply,0)
+		}
+
+		var checkreplyLock sync.RWMutex
+		for id,masterip := range masterList{
+			go masterSendForReply(id, masterip, &checkreply, &checkreplyLock,filenameBytes2,"delfile")
+		}
+
+		for sum(checkreply)<len(masterList)/2+1{ //blocking -- wait for majority of replies
+			fmt.Println("Waiting for Reply from majority")
+		} 
+		fmt.Println("Reply from majority received")
+
+		// send DONE to client
+		msgtoclient, err := json.Marshal("DONE")
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.Write(msgtoclient)
+
+		// if len(masterList)>0{
+		// 	// send this information to all the other masters and get back majority of OKAY
+		// 	// do a broadcast to all master -> do in goroutines?? Should be go routine...
+		// 	// or in for loop? which can check if less then minority then return error
+		// 	for id,masterip := range masterList{
+		// 		fmt.Println("send modified namespace to",masterip)
+		// 		req, err := http.NewRequest("POST", "http://"+masterip+"/master/delfile", bytes.NewBuffer(filenameBytes)) //send over the string filename
+		// 		if err != nil {
+		// 			log.Fatal(err)
+		// 		}
+			
+		// 		client := &http.Client{
+		// 			Timeout: time.Second * config.TIMEOUT,
+		// 		}
+			
+		// 		resp, err := client.Do(req)
+		// 		if err != nil || resp.StatusCode != 200 {
+		// 			log.Println("Failed to reach master for reply.",masterip)
+		// 		}
+		// 		body, err := ioutil.ReadAll(resp.Body)
+		// 		if err != nil {
+		// 			log.Fatal(err)
+		// 		}
+
+		// 		var reply string
+		// 		err = json.Unmarshal(body, &reply)
+		// 		if err != nil {
+		// 			log.Fatal(err)
+		// 		}
+		// 		if reply =="REPLY"{ // check that the reply is OKAY
+		// 			fmt.Println("Successfully get reply from master.",masterip)
+		// 			checkreply[id] = 1
+		// 		}
+		// 	}
+		// }
 	}
 }
 
@@ -168,4 +244,13 @@ func MasterHandleDelFile(m *structs.Master) http.HandlerFunc{
 		}
 		w.Write(reply)
 	}
+}
+
+// HELPER FUNCTIONS ---------------------------------
+func sum(array []int) int {  
+	result := 0  
+	for _, v := range array {  
+	 result += v  
+	}  
+	return result  
 }
