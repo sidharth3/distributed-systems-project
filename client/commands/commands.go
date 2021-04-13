@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"ds-proj/client/config"
 	"ds-proj/client/helpers"
+	"ds-proj/client/structs"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -133,7 +134,10 @@ func DeleteFile(master_ip string, filename string) {
 }
 
 func ListDir(master_ip string, path string) {
-	res, err := http.Get("http://" + master_ip + "/ls?ls=" + path)
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+	res, err := client.Get("http://" + master_ip + "/ls?ls=" + path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -150,7 +154,10 @@ func ListDir(master_ip string, path string) {
 	}
 
 	for _, filename := range dir {
-		fmt.Println(filename)
+		fileDir := structs.InitDir("/")
+		fileDir.Insert(filename)
+		dir := fileDir.FormatString()
+		fmt.Println(dir)
 	}
 }
 

@@ -6,11 +6,11 @@ import (
 	"os"
 )
 
-// build client CLI 'go build -o dfs ./client'
+// build client CLI 'go build -o dfs ../client'
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please specify commands to be performed.")
-		fmt.Println("Available dfs commands are: -cat, -get, -put, -rm, -ls, -mkdir")
+		fmt.Println("Available dfs commands are: -cat, -get, -put, -rm, -ls")
 		os.Exit(0)
 	}
 
@@ -53,25 +53,12 @@ func main() {
 		}
 	case "-ls":
 		// example command: ./dfs -ls 127.0.0.1:8080 /gfspath/to
-		// TODO: ./dfs -ls 127.0.0.1:8080 /gfspath/to . (for root dir?)
-		if len(os.Args) < 3 {
+		// TODO: ./dfs -ls 127.0.0.1:8080 /gfspath/to (. for root dir)
+		if len(os.Args) < 4 {
 			fmt.Println("Missing two args. ls requires masterIP and directory.")
 			os.Exit(0)
 		} else {
-			if len(os.Args) == 3 {
-				commands.ListDir(os.Args[2], "")
-			} else {
-				commands.ListDir(os.Args[2], os.Args[3])
-			}
-		}
-	case "-mkdir":
-		// TODO: ./dfs -mkdir 127.0.0.1:8080 /gfspath/to
-		if len(os.Args) < 3 {
-			fmt.Println("Missing two args. ls requires masterIP and directory.")
-			os.Exit(0)
-		} else {
-			fmt.Println("Have not implemented.")
-			os.Exit(0)
+			commands.ListDir(os.Args[2], os.Args[3])
 		}
 	default:
 		fmt.Println("Invalid command.")
