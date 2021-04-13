@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"log"
 	"os"
+	"regexp"
+	"strings"
 )
 
 func OpenFile(filename string) *os.File {
@@ -34,4 +36,28 @@ func HashFileContent(f *os.File) string {
 	hashValue := hex.EncodeToString(h.Sum(nil))
 
 	return hashValue
+}
+
+func SanitizeInput(path string) string {
+	sanitizedPath := ""
+	pathList := strings.Split(path, "/")
+	check, err := regexp.MatchString(`.\..`, pathList[len(pathList)-1])
+	if !check {
+		log.Fatal("Filename invalid")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	if check {
+
+	}
+	for i, path := range pathList {
+		if i != len(pathList)-1 {
+			path = strings.ReplaceAll(path, ".", "")
+		}
+		if strings.Trim(path, " ") != "" {
+			sanitizedPath += "/" + path
+		}
+	}
+	return sanitizedPath
 }

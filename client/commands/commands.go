@@ -92,6 +92,11 @@ func GetFile(master_ip string, remote_filename string) {
 }
 
 func PostFile(master_ip string, filename string, remote_filename string) {
+	remote_filename = helpers.SanitizeInput(remote_filename)
+	if remote_filename == "" {
+		log.Fatal("File path invalid")
+	}
+
 	// Sends a GET request to the master for a list of available slave ips
 	f := helpers.OpenFile(filename)
 	hashValue := helpers.HashFileContent(f)
@@ -153,12 +158,12 @@ func ListDir(master_ip string, path string) {
 		log.Fatal(err)
 	}
 
+	fileDir := structs.InitDir("/")
 	for _, filename := range dir {
-		fileDir := structs.InitDir("/")
 		fileDir.Insert(filename)
-		dir := fileDir.FormatString()
-		fmt.Println(dir)
 	}
+	dirStr := fileDir.FormatString()
+	fmt.Println(dirStr)
 }
 
 func getFileMaster(master_ip string, filename string) []string {
