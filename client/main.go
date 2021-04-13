@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// build client CLI 'go build -o dfs ./client'
+// build client CLI 'go build -o dfs ../client'
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please specify commands to be performed.")
@@ -53,13 +53,13 @@ func main() {
 		}
 	case "-ls":
 		// example command: ./dfs -ls 127.0.0.1:8080 /gfspath/to
-		// TODO: ./dfs -ls 127.0.0.1:8080 /gfspath/to . (for root dir?)
+		// TODO: ./dfs -ls 127.0.0.1:8080 /gfspath/to (. for root dir)
 		if len(os.Args) < 3 {
 			fmt.Println("Missing two args. ls requires masterIP and directory.")
 			os.Exit(0)
 		} else {
 			if len(os.Args) == 3 {
-				commands.ListDir(os.Args[2], "")
+				commands.ListDir(os.Args[2], ".")
 			} else {
 				commands.ListDir(os.Args[2], os.Args[3])
 			}

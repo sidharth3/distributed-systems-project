@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"ds-proj/client/config"
 	"ds-proj/client/helpers"
+	"ds-proj/client/structs"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -108,7 +109,10 @@ func ListDir(master_ip string, path string) {
 	}
 
 	for _, filename := range dir {
-		fmt.Println(filename)
+		fileDir := structs.InitDir("/")
+		fileDir.Insert(filename)
+		dir := fileDir.FormatString()
+		fmt.Println(dir)
 	}
 }
 

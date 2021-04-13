@@ -3,7 +3,6 @@ package handlers
 import (
 	"ds-proj/master/structs"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -69,7 +68,6 @@ func HandleListDir(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		path := req.Form["ls"][0]
-		fmt.Println("Path", path)
 
 		file := m.Namespace.GetFile(path)
 

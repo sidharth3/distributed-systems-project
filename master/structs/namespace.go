@@ -1,7 +1,6 @@
 package structs
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 )
@@ -33,13 +32,12 @@ func (n *Namespace) DelFile(filename string) {
 func (n *Namespace) GetFile(path string) []string {
 	files := make([]string, 0)
 	n.rwLock.Lock()
-	if path == "" {
+	if path == "." {
 		for filename := range n.namespace {
 			files = append(files, filename)
 		}
 	} else {
 		for filename := range n.namespace {
-			fmt.Println(strings.SplitAfter(filename, path))
 			if strings.SplitAfter(filename, path)[0] == path && strings.SplitAfter(filename, path)[1][0] == '/' {
 				files = append(files, strings.Split(filename, path)[1])
 			}
