@@ -37,7 +37,7 @@ func main() {
 	case "-put":
 		// example command: ./dfs -put 127.0.0.1:8080 example.txt
 		// ./dfs -put 127.0.0.1:8080 example.txt /gfspath/to - DONE
-		if len(os.Args) < 4 {
+		if len(os.Args) < 5 {
 			fmt.Println("Missing args. put requires masterIP, file name and dfs destination path.")
 			os.Exit(0)
 		} else {

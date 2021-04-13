@@ -21,40 +21,73 @@ func DownloadFile(master_ip string, remote_filename string, local_filename strin
 
 	ipArr := getFileMaster(master_ip, remote_filename)
 
-	res, err := http.Get("http://" + ipArr[1] + "/file?file=" + ipArr[0])
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+
+	var res *http.Response
+	var err error
+	for i := 1; i < len(ipArr); i++ { // Try all slave ips returned
+		res, err = client.Get("http://" + ipArr[1] + "/file?file=" + ipArr[0])
+		if err != nil {
+			fmt.Println(err)
+		} else if res.StatusCode != http.StatusOK {
+			fmt.Println(res)
+		} else {
+			break
+		}
+	}
+	if err != nil || res.StatusCode != http.StatusOK {
+		log.Fatal("File download failed")
+	}
+
+	err = os.MkdirAll(filepath.Dir(local_filename), os.ModePerm)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer res.Body.Close()
-
-	if _, err := os.Stat(filepath.Dir(local_filename)); os.IsNotExist(err) {
-		os.Mkdir(filepath.Dir(local_filename), 0700)
-	}
-
-	out, err := os.Create(local_filename)
-
+	f, err := os.Create(local_filename)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
 
-	defer out.Close()
-
-	if res.StatusCode == http.StatusOK {
-		_, err = io.Copy(out, res.Body)
-		fmt.Println("Downloaded file.")
+	_, err = io.Copy(f, res.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
-
+	fmt.Println("Downloaded file")
 }
 
 func GetFile(master_ip string, remote_filename string) {
-	// Sends a GET request to the master for a list of slave ips with that filename
 	ipArr := getFileMaster(master_ip, remote_filename)
 
-	// Sends a GET request to the slave for the file content
-	// Currently just using first ip returned
-	getFileSlave(ipArr[1], ipArr[0])
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
 
+	var res *http.Response
+	var err error
+	for i := 1; i < len(ipArr); i++ { // Try all slave ips returned
+		res, err = client.Get("http://" + ipArr[1] + "/file?file=" + ipArr[0])
+		if err != nil {
+			fmt.Println(err)
+		} else if res.StatusCode != http.StatusOK {
+			fmt.Println(res)
+		} else {
+			break
+		}
+	}
+	if err != nil || res.StatusCode != http.StatusOK {
+		log.Fatal("File cat failed")
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	outputString := string(body)
+	fmt.Println(outputString)
 }
 
 func PostFile(master_ip string, filename string, remote_filename string) {
@@ -64,7 +97,6 @@ func PostFile(master_ip string, filename string, remote_filename string) {
 	f.Close()
 
 	ipArr := getSlaveIPsMaster(master_ip, url.QueryEscape(remote_filename), hashValue) // pass remote filename to master
-
 	// Sends a POST request to the slave to upload the file content
 	// sends file to all alive slaves
 	for _, ip := range ipArr {
@@ -77,17 +109,27 @@ func DeleteFile(master_ip string, filename string) {
 
 	// Sends a DELETE request to master to delete the file
 	jsonReq, err := json.Marshal(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	req, err := http.NewRequest(http.MethodDelete, masterURL, bytes.NewBuffer(jsonReq))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
 	}
 	res, err := client.Do(req)
-
-	if err != nil || res.StatusCode != http.StatusOK {
-		log.Fatal("File delete has failed.")
-	} else {
-		fmt.Println("Successfully deleted file.")
+	if err != nil {
+		log.Fatal(err)
 	}
+	if res.StatusCode != http.StatusOK {
+		log.Fatal(res)
+	}
+
+	fmt.Println("Sucessfully deleted file")
 }
 
 func ListDir(master_ip string, path string) {
@@ -113,9 +155,15 @@ func ListDir(master_ip string, path string) {
 }
 
 func getFileMaster(master_ip string, filename string) []string {
-	res, err := http.Get("http://" + master_ip + "/file?file=" + filename)
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+	res, err := client.Get("http://" + master_ip + "/file?file=" + filename)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Fatal(res)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -132,29 +180,17 @@ func getFileMaster(master_ip string, filename string) []string {
 	return ipArr
 }
 
-func getFileSlave(slave_ip string, hashValue string) {
-	res, err := http.Get("http://" + slave_ip + "/file?file=" + hashValue)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// only for verbose
-	if res.StatusCode == http.StatusOK {
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		outputString := string(body)
-		fmt.Println(outputString)
-	}
-
-}
-
 func getSlaveIPsMaster(master_ip string, remote_filename string, hash string) []string {
 	// Sends a GET request to master for available slave ips
-	res, err := http.Get("http://" + master_ip + "/slaveips?file=" + remote_filename + "&hash=" + hash)
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+	res, err := client.Get("http://" + master_ip + "/slaveips?file=" + remote_filename + "&hash=" + hash)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Fatal(res)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -167,7 +203,6 @@ func getSlaveIPsMaster(master_ip string, remote_filename string, hash string) []
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ipArr)
 
 	return ipArr
 }
@@ -188,19 +223,20 @@ func postFileSlave(slave_ip string, filename string, hash string) {
 			log.Fatal(err)
 		}
 	}
-	w.Close()
 	f.Close()
+	w.Close()
 
 	// Post request
-	res, err := http.Post(slaveURL, w.FormDataContentType(), &b)
-
-	if err != nil || res.StatusCode != 200 {
-		fmt.Println("File upload has failed.")
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+	res, err := client.Post(slaveURL, w.FormDataContentType(), &b)
+	if err != nil {
 		log.Fatal(err)
 	}
-
-	// only for verbose
-	if res.StatusCode == http.StatusOK {
-		fmt.Println("Succeeded sending to slave")
+	if res.StatusCode != http.StatusOK {
+		log.Fatal(res)
 	}
+
+	fmt.Println("Succeeded sending to slave")
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	master := test.SimpleCase()
+	master := test.EmptyCase()
 
 	go periodic.HeartbeatSender(master)
 	go periodic.LoadChecker(master)

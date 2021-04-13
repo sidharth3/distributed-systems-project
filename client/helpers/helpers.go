@@ -10,7 +10,7 @@ import (
 func OpenFile(filename string) *os.File {
 	f, err := os.Open(filename)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	return f
 }
@@ -27,7 +27,10 @@ func HashFileContent(f *os.File) string {
 	}
 
 	h := sha256.New()
-	h.Write(byteArr[:numBytes])
+	_, err = h.Write(byteArr[:numBytes])
+	if err != nil {
+		log.Fatal(err)
+	}
 	hashValue := hex.EncodeToString(h.Sum(nil))
 
 	return hashValue

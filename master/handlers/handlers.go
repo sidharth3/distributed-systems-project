@@ -12,7 +12,11 @@ import (
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		req.ParseForm()
+		err := req.ParseForm()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		filename := req.Form["file"][0]
 		hash := req.Form["hash"][0]
 
@@ -20,6 +24,10 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 		m.GCCount.NewFile(filename)
 
 		ipArr := m.Slaves.GetFree()
+		if len(ipArr) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
 		data, err := json.Marshal(ipArr)
 		if err != nil {
@@ -32,18 +40,30 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 // Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
 func HandleFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		req.ParseForm()
+		err := req.ParseForm()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		filename := req.Form["file"][0]
 		ipArr := make([]string, 0)
-
 		ipArr = append(ipArr, m.Namespace.GetHash(filename))
-
+		if ipArr[0] == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		ipArr = append(ipArr, m.FileLocations.GetIPs(ipArr[0])...)
+		if len(ipArr) == 1 {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		w.Write(data)
 	}
 }
@@ -60,8 +80,9 @@ func HandleDeleteFile(m *structs.Master) http.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		m.Namespace.DelFile(filename)
+		if !m.Namespace.DelFile(filename) {
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}
 }
 

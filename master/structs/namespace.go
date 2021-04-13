@@ -24,10 +24,15 @@ func (n *Namespace) GetHash(filename string) string {
 	return n.namespace[filename]
 }
 
-func (n *Namespace) DelFile(filename string) {
+func (n *Namespace) DelFile(filename string) bool {
 	n.rwLock.Lock()
-	delete(n.namespace, filename)
-	n.rwLock.Unlock()
+	exists := false
+	if n.namespace[filename] != "" {
+		delete(n.namespace, filename)
+		exists = true
+	}
+	defer n.rwLock.Unlock()
+	return exists
 }
 
 func (n *Namespace) GetFile(path string) []string {

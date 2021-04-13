@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -20,29 +19,16 @@ func RegisterWithMaster() {
 		log.Fatal()
 	}
 
-	req, err := http.NewRequest("POST", "http://"+helpers.MasterIP()+"/register", bytes.NewBuffer(filesBytes))
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
 	}
 
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		log.Fatal("Failed to register with master.")
+	res, err := client.Post("http://"+helpers.MasterIP()+"/register", "application/json", bytes.NewBuffer(filesBytes))
+	if err != nil {
+		log.Fatal(err)
+	} else if res.StatusCode != http.StatusOK {
+		log.Fatal(res)
 	} else {
-		fmt.Println("Successfully registered with master.")
-	}
-}
-
-func ForceUpdateMaster(data url.Values) {
-	//Questions - does forceUpdate need to send directory also or new upload information only?
-	master_URL := "http://127.0.0.1:8080/update"
-	res, err := http.PostForm(master_URL, data)
-	fmt.Println(res.StatusCode)
-	if err != nil || res.StatusCode != 200 {
-		fmt.Println("File upload has failed.")
+		fmt.Println("Successfully registered with master")
 	}
 }
