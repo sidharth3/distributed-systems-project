@@ -15,6 +15,9 @@ import (
 
 func HeartbeatSender(m *structs.Master) {
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
 		fmt.Println("Sending heartbeats ...")
 		f := func(slave *structs.Slave) {
@@ -52,6 +55,9 @@ func HeartbeatSender(m *structs.Master) {
 
 func LoadChecker(m *structs.Master) {
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Second * config.LDINTERVAL)
 		fmt.Println("Checking loads...")
 		f := func(slave *structs.Slave) {
@@ -87,6 +93,9 @@ func LoadChecker(m *structs.Master) {
 
 func FileLocationsUpdater(m *structs.Master) {
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Second * config.FLINTERVAL)
 		fmt.Println("Updating file locations")
 		newFileLocations := m.Slaves.GenFileLocations()
@@ -99,6 +108,9 @@ func FileLocationsUpdater(m *structs.Master) {
 // periodically sends over the values of the namespaces in the Master struct
 func SlaveGarbageCollector(m *structs.Master) {
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 		fmt.Println("Sending garbage collection message ...")
 		// prepare hashedContent
@@ -129,6 +141,9 @@ func SlaveGarbageCollector(m *structs.Master) {
 
 func CheckReplica(m *structs.Master) {
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Duration(config.REPINTERVAL) * time.Second)
 		fmt.Println("Replication cycle starting")
 		toReplicate := make(map[string]map[string]string) // {slaveip: {fileHash: ip1, fileHash2: ip2}}
@@ -165,6 +180,9 @@ func CheckReplica(m *structs.Master) {
 func MasterGarbageCollector(m *structs.Master) {
 
 	for {
+		if !m.IsPrimary {
+			break
+		}
 		time.Sleep(time.Second * config.MGCINTERVAL)
 		fmt.Println("Master Garbage Collection Cycle Starting")
 		unlinked := m.UnlinkedNamespace()

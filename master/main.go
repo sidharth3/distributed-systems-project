@@ -47,6 +47,7 @@ func main() {
 	// for other masters
 	http.HandleFunc("/master/namespace", handlers.MasterHandleNamespace(master)) //tosend over namespaces
 	http.HandleFunc("/master/delfile", handlers.MasterHandleDelFile(master))     //to del something in the namespace and sends reply back
+	http.HandleFunc("/master/notprimary", handlers.MasterHandleNotPrimary(master))
 
 	// http.ListenAndServe("127.0.0.1:8080", nil)
 	http.ListenAndServe("127.0.0.1:"+os.Args[1], nil)

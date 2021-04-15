@@ -235,6 +235,13 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 		go periodic.MasterGarbageCollector(m)
 		// change the IsPrimary to true
 		m.IsPrimary = true
+
+		for _, masterip := range masterList {
+			client := &http.Client{
+				Timeout: time.Second * config.TIMEOUT,
+			}
+			client.Post("http://"+masterip+"/master/notprimary", "application/json", nil)
+		}
 	}
 	m.IsPrimaryLock.Unlock()
 }
@@ -271,6 +278,15 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 		// (*checkreply)[id] = 1
 		// checkreplyLock.Unlock()
 		wg.Done()
+	}
+}
+
+func MasterHandleNotPrimary(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		m.IsPrimaryLock.Lock()
+		m.IsPrimary = false
+		m.IsPrimaryLock.Unlock()
+		//kill go routine
 	}
 }
 

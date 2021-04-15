@@ -86,8 +86,23 @@ func DeleteFile(master_ip string, filename string) {
 	if err != nil || res.StatusCode != http.StatusOK {
 		log.Fatal("File delete has failed.")
 	} else {
-		fmt.Println("Successfully deleted file.")
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var done string
+		err = json.Unmarshal(body, &done)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if done == "DONE" {
+			fmt.Println("Successfully deleted file.")
+		} else if done == "NOTDONE" {
+			log.Fatal("File delete has failed.")
+		}
 	}
+
 }
 
 func ListDir(master_ip string, path string) {
