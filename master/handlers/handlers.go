@@ -89,11 +89,12 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		}
 		wg.Wait()
 		// check for majority
-		if numofreplies >= (len(masterList) -1)/ 2{
-			status := "DONE"
+		var status string
+		if numofreplies >= (len(masterList)-1)/2 {
+			status = "DONE"
 			fmt.Println("Reply from majority received")
-		}else{
-			status := "NOTDONE"
+		} else {
+			status = "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")
 		}
 
@@ -229,6 +230,10 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 		// change the IsPrimary to true
 		m.IsPrimary = true
 
+		for filename, _ := range updatedNS {
+			m.GCCount.NewFile(filename)
+		}
+
 		for _, masterip := range masterList {
 			client := &http.Client{
 				Timeout: time.Second * config.TIMEOUT,
@@ -239,7 +244,7 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.IsPrimaryLock.Unlock()
 }
 
-func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup, numofreplies *int, &numofreplieslock *sync.Mutex) {
+func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup, numofreplies *int, numofreplieslock *sync.Mutex) {
 	fmt.Println("send reply to endpoint", endpoint, "to", masterip)
 	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
 	if err != nil {
@@ -268,9 +273,9 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 	}
 	if reply == "OKAY" { // check that the reply is OKAY
 		fmt.Println("Successfully get reply from master.", masterip)
-		numofreplies.Lock()
+		numofreplieslock.Lock()
 		*numofreplies++
-		numofreplies.Unlock()
+		numofreplieslock.Unlock()
 		wg.Done()
 	}
 }

@@ -86,23 +86,8 @@ func DeleteFile(master_ip string, filename string) {
 	if err != nil || res.StatusCode != http.StatusOK {
 		log.Fatal("File delete has failed.")
 	} else {
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var done string
-		err = json.Unmarshal(body, &done)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if done == "DONE" {
-			fmt.Println("Successfully deleted file.")
-		} else if done == "NOTDONE" {
-			log.Fatal("File delete has failed.")
-		}
+		fmt.Println("Successfully deleted file.")
 	}
-
 }
 
 func ListDir(master_ip string, path string) {
@@ -181,6 +166,9 @@ func getSlaveIPsMaster(master_ip string, remote_filename string, hash string) []
 	err = json.Unmarshal(body, &ipArr)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if len(ipArr) == 0 {
+		log.Fatal("Upload file failed")
 	}
 	fmt.Println(ipArr)
 
