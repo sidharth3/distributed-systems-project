@@ -20,12 +20,20 @@ type Slave struct {
 	hashes map[string]bool // hashes that a slave has
 }
 
+func (s *Slaves) GetLen() int {
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+	return len(s.slaves)
+}
+
 // the master periodically maintains a sorted load of all its slaves
 func (s *Slaves) SortLoad() {
 	slaveArr := make([]*Slave, 0, len(s.slaves))
+	s.rwLock.RLock()
 	for slave := range s.slaves {
 		slaveArr = append(slaveArr, slave)
 	}
+	s.rwLock.RUnlock()
 	sort.Slice(slaveArr, func(i, j int) bool {
 		if a, b := slaveArr[i].GetLoad(), slaveArr[j].GetLoad(); a != b {
 			return a < b
@@ -113,10 +121,14 @@ func (s *Slave) GetIP() string {
 }
 
 func (s *Slave) SetLoad(load int) {
+	s.rwLock.Lock()
 	s.load = load
+	s.rwLock.Unlock()
 }
 
 func (s *Slave) GetLoad() int {
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
 	return s.load
 }
 

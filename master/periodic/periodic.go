@@ -16,7 +16,7 @@ import (
 func HeartbeatSender(m *structs.Master) {
 	for {
 		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
-		fmt.Println("Sending heartbeats ...")
+		fmt.Printf("Sending heartbeats to %v slaves...\n", m.Slaves.GetLen())
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
 			client := &http.Client{
