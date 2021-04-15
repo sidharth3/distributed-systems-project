@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"ds-proj/master/config"
+	"ds-proj/master/periodic"
 	"ds-proj/master/structs"
 	"encoding/json"
 	"fmt"
@@ -37,7 +38,7 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 
 // Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
 func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
-	firstBecomeMaster(m,, masterList)
+	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
@@ -54,7 +55,6 @@ func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		w.Write(data)
 	}
 }
-
 
 func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 	firstBecomeMaster(m, masterList)
@@ -78,18 +78,18 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		}
 
 		checkreply := make([]int, len(masterList))
-		for i :=0 ; i<len(masterList);i++{
-			checkreply = append(checkreply,0)
+		for i := 0; i < len(masterList); i++ {
+			checkreply = append(checkreply, 0)
 		}
 
 		var checkreplyLock sync.RWMutex
-		for id,masterip := range masterList{
-			go masterSendForReply(id, masterip, &checkreply, &checkreplyLock,filenameBytes2,"delfile")
+		for id, masterip := range masterList {
+			go masterSendForReply(id, masterip, &checkreply, &checkreplyLock, filenameBytes2, "delfile")
 		}
 
-		for sum(checkreply)<len(masterList)/2+1{ //blocking -- wait for majority of replies
+		for sum(checkreply) < len(masterList)/2+1 { //blocking -- wait for majority of replies
 			fmt.Println("Waiting for Reply from majority")
-		} 
+		}
 		fmt.Println("Reply from majority received")
 
 		// send DONE to client
@@ -138,25 +138,20 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 				break
 			}
 		}
-		fmt.Println(slaveIP,"slave is registered.")
+		fmt.Println(slaveIP, "slave is registered.")
 		delete(files, "/"+slaveIP)
 		m.Slaves.NewSlave(slaveIP, 0, files)
 	}
 }
 
-func collateNS(masterip string,  count *map[[]string]int, countLock *sync.Mutex, wg *sync.WaitGroup){
-	req, err := http.NewRequest("POST", "http://"+masterip+"/master/namespace") 
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func collateNS(masterip string, count *map[[]string]int, countLock *sync.Mutex, wg *sync.WaitGroup) {
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
 	}
 
-	resp, err := client.Do(req)
+	resp, err := client.Post("http://"+masterip+"/master/namespace", "application/json", nil)
 	if err != nil || resp.StatusCode != 200 {
-		log.Println("Failed to reach master for namespace request at /master/namespace.",masterip)
+		log.Println("Failed to reach master for namespace request at /master/namespace.", masterip)
 		wg.Done()
 		return
 	}
@@ -165,21 +160,21 @@ func collateNS(masterip string,  count *map[[]string]int, countLock *sync.Mutex,
 		log.Fatal(err)
 	}
 
-	var incomingNS map[string] string
+	var incomingNS map[string]string
 	err = json.Unmarshal(body, &incomingNS)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for fn, hash:= range incomingNS{
-		incomingkey := []string{fn,hash}
+	for fn, hash := range incomingNS {
+		incomingkey := []string{fn, hash}
 		count, ok := (*count)[incomingkey]
-		if ok{
-			newcount := count+1
-			(*count)[incomingkey] = newcount 
+		if ok {
+			newcount := count + 1
+			(*count)[incomingkey] = newcount
 			// check if newcount reaches majority
 
-		}else{
+		} else {
 			(*count)[incomingkey] = 1
 		}
 	}
@@ -188,30 +183,30 @@ func collateNS(masterip string,  count *map[[]string]int, countLock *sync.Mutex,
 
 // for master replica -----------------------------------
 
-func firstBecomeMaster(m *structs.Master, masterList []string){
+func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.isPrimaryLock.Lock()
-	if !*m.isPrimary{
+	if !*m.isPrimary {
 		fmt.Println("This is the new primary master.")
 		// [filename, hash]: count
-		count:= make(map[[]string] int)
+		count := make(map[[]string]int)
 		var countLock sync.Mutex
 		//first populate this with your current namespace
 		currentNS := m.Namespace.ReturnNamespace()
-		for fn, hash:= range currentNS{
-			key:=[]string{fn,hash}
+		for fn, hash := range currentNS {
+			key := []string{fn, hash}
 			count[key] = 1
 		}
 		// do collation to the other namespaces
 		var wg sync.WaitGroup
-		for _,masterip :=range masterList{
+		for _, masterip := range masterList {
 			wg.Add(1)
-			go collateNS(masterip, &count, &countLock,&wg)
+			go collateNS(masterip, &count, &countLock, &wg)
 		}
 		wg.Wait()
 		// collating majority entries
-		updatedNS := make(map [string]string)
-		for key, c:= range count{
-			if c > len(masterList)/2+1{
+		updatedNS := make(map[string]string)
+		for key, c := range count {
+			if c > len(masterList)/2+1 {
 				updatedNS[key[0]] = key[1]
 			}
 		}
@@ -225,12 +220,12 @@ func firstBecomeMaster(m *structs.Master, masterList []string){
 		go periodic.MasterGarbageCollector(m)
 		// change the isPrimary to true
 		*m.isPrimary = true
-	} 	
+	}
 	m.isPrimaryLock.Unlock()
 }
 
-func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string){
-	fmt.Println("send reply to endpoint",endpoint,"to",masterip)
+func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string) {
+	fmt.Println("send reply to endpoint", endpoint, "to", masterip)
 	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
 	if err != nil {
 		log.Fatal(err)
@@ -242,7 +237,7 @@ func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLo
 
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
-		log.Println("Failed to reach master for reply.",masterip)
+		log.Println("Failed to reach master for reply.", masterip)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -254,15 +249,15 @@ func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLo
 	if err != nil {
 		log.Fatal(err)
 	}
-	if reply =="REPLY"{ // check that the reply is OKAY
-		fmt.Println("Successfully get reply from master.",masterip)
+	if reply == "REPLY" { // check that the reply is OKAY
+		fmt.Println("Successfully get reply from master.", masterip)
 		checkreplyLock.Lock()
 		(*checkreply)[id] = 1
 		checkreplyLock.Unlock()
 	}
 }
 
-func MasterHandleNamespace(m *structs.Master) http.HandlerFunc{
+func MasterHandleNamespace(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		newNS := m.Namespace.ReturnNamespace()
 		fmt.Println("Sending Namespace over...", newNS)
@@ -274,7 +269,7 @@ func MasterHandleNamespace(m *structs.Master) http.HandlerFunc{
 	}
 }
 
-func MasterHandleDelFile(m *structs.Master) http.HandlerFunc{
+func MasterHandleDelFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("Receive filename to delete...")
 		filesBytes, err := ioutil.ReadAll(req.Body)
@@ -290,7 +285,7 @@ func MasterHandleDelFile(m *structs.Master) http.HandlerFunc{
 		}
 		// del filename from namespace
 		m.Namespace.DelFile(filename)
-		
+
 		// reply back
 		reply, err := json.Marshal("OKAY")
 		if err != nil {
@@ -301,10 +296,10 @@ func MasterHandleDelFile(m *structs.Master) http.HandlerFunc{
 }
 
 // HELPER FUNCTIONS ---------------------------------
-func sum(array []int) int {  
-	result := 0  
-	for _, v := range array {  
-	 result += v  
-	}  
-	return result  
+func sum(array []int) int {
+	result := 0
+	for _, v := range array {
+		result += v
+	}
+	return result
 }

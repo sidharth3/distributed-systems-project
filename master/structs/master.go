@@ -2,7 +2,6 @@ package structs
 
 import (
 	"sync"
-	"ds-proj/master/periodic"
 )
 
 type Master struct {
@@ -10,7 +9,7 @@ type Master struct {
 	FileLocations *FileLocations
 	Namespace     *Namespace
 	GCCount       *GCCount
-	isPrimary bool
+	isPrimary     bool
 	isPrimaryLock *sync.Mutex
 }
 
