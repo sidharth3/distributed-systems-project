@@ -27,13 +27,43 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 		m.Namespace.SetHash(filename, hash)
 		m.GCCount.NewFile(filename)
 
-		ipArr := m.Slaves.GetFree()
+		filenameBytes2, err := json.Marshal([2]string{filename, hash})
+		if err != nil {
+			log.Fatal()
+		}
 
-		data, err := json.Marshal(ipArr)
+		var wg sync.WaitGroup
+		numofreplies := 0
+		var numofreplieslock sync.Mutex
+		for _, masterip := range masterList {
+			wg.Add(1) //(len(masterList) -1)/ 2
+			go masterSendForReply(masterip, filenameBytes2, "uploadfile", &wg, &numofreplies, &numofreplieslock)
+		}
+		wg.Wait()
+		// check for majority
+		var status [2]string
+		if numofreplies >= len(masterList)/ 2{
+			// status := "DONE"
+			fmt.Println("Reply from majority received")
+			ipArr := m.Slaves.GetFree()
+	
+			data, err := json.Marshal(ipArr)
+			if err != nil {
+				log.Fatal(err)
+			}
+			status := [2]string{"DONE", data}
+		}else{
+			// status := "NOTDONE"
+			fmt.Println("NOT enough reply from majority received")
+			status := [2]string{"NOTDONE", 0}
+		}
+
+		// send status to client
+		msgtoclient, err := json.Marshal(status)
 		if err != nil {
 			log.Fatal(err)
 		}
-		w.Write(data)
+		w.Write(msgtoclient)
 	}
 }
 
@@ -96,7 +126,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 			status := "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")
 		}
-
+		
 		// send status to client
 		msgtoclient, err := json.Marshal(status)
 		if err != nil {
@@ -109,14 +139,14 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 func HandleListDir(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("HandleListDir")
-
+		
 		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		path := req.Form["ls"][0]
 		fmt.Println("Path", path)
-
+		
 		file := m.Namespace.GetFile(path)
-
+		
 		data, err := json.Marshal(file)
 		if err != nil {
 			log.Fatal(err)
@@ -131,7 +161,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 		}
-
+		
 		w.WriteHeader(http.StatusOK)
 		files := make(map[string]bool)
 		err = json.Unmarshal(filesBytes, &files)
@@ -151,6 +181,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 	}
 }
 
+// for master replica -----------------------------------
 func collateNS(masterip string, count map[[2]string]int, countLock *sync.Mutex, wg *sync.WaitGroup) {
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
@@ -188,7 +219,6 @@ func collateNS(masterip string, count map[[2]string]int, countLock *sync.Mutex, 
 	wg.Done()
 }
 
-// for master replica -----------------------------------
 
 func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.IsPrimaryLock.Lock()
@@ -271,7 +301,7 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 func MasterHandleNamespace(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		newNS := m.Namespace.ReturnNamespace()
-		fmt.Println("Sending Namespace over...", newNS)
+		fmt.Println("MasterHandleNamespace: Sending Namespace over...", newNS)
 		data, err := json.Marshal(newNS)
 		if err != nil {
 			log.Fatal(err)
@@ -282,7 +312,7 @@ func MasterHandleNamespace(m *structs.Master) http.HandlerFunc {
 
 func MasterHandleDelFile(m *structs.Master) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		fmt.Println("Receive filename to delete...")
+		fmt.Println("MasterHandleDelFile: Receive filename to delete...")
 		filesBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
@@ -296,6 +326,32 @@ func MasterHandleDelFile(m *structs.Master) http.HandlerFunc {
 		}
 		// del filename from namespace
 		m.Namespace.DelFile(filename)
+
+		// reply back
+		reply, err := json.Marshal("OKAY")
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.Write(reply)
+	}
+}
+
+func MasterHandleFile(m *structs.Master) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		fmt.Println("MasterHandleFile: Receive filename and hash to add...")
+		filesBytes, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		var filenameAndHash [2]string
+		err = json.Unmarshal(filesBytes, &filenameAndHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// add filename and hash to namespace
+		m.Namespace.SetHash(filenameAndHash[0], filenameAndHash[1])
 
 		// reply back
 		reply, err := json.Marshal("OKAY")
