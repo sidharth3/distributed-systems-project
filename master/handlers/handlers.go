@@ -41,21 +41,16 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 		}
 		wg.Wait()
 		// check for majority
-		var status [2]string
-		if numofreplies >= len(masterList)/ 2{
+		var status []string
+		if numofreplies >= len(masterList)/2 {
 			// status := "DONE"
 			fmt.Println("Reply from majority received")
 			ipArr := m.Slaves.GetFree()
-	
-			data, err := json.Marshal(ipArr)
-			if err != nil {
-				log.Fatal(err)
-			}
-			status := data
-		}else{
+			status = ipArr
+		} else {
 			// status := "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")
-			status := make([]string,0)
+			status = make([]string, 0)
 		}
 
 		// send status to client
@@ -127,7 +122,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 			status = "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")
 		}
-		
+
 		// send status to client
 		msgtoclient, err := json.Marshal(status)
 		if err != nil {
@@ -140,14 +135,14 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 func HandleListDir(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("HandleListDir")
-		
+
 		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		path := req.Form["ls"][0]
 		fmt.Println("Path", path)
-		
+
 		file := m.Namespace.GetFile(path)
-		
+
 		data, err := json.Marshal(file)
 		if err != nil {
 			log.Fatal(err)
@@ -162,7 +157,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 		files := make(map[string]bool)
 		err = json.Unmarshal(filesBytes, &files)
@@ -219,7 +214,6 @@ func collateNS(masterip string, count map[[2]string]int, countLock *sync.Mutex, 
 	}
 	wg.Done()
 }
-
 
 func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.IsPrimaryLock.Lock()
