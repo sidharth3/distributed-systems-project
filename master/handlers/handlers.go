@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"fmt"
 )
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]

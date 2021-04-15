@@ -18,6 +18,7 @@ func main() {
 
 	// check if it is primary
 	if len(os.Args) > 3 && os.Args[len(os.Args)-1] == "-p" {
+		master.IsPrimary = true
 		fmt.Println("This is the initial primary master.", "127.0.0.1:"+os.Args[1])
 		go periodic.HeartbeatSender(master)
 		go periodic.LoadChecker(master)
@@ -25,7 +26,6 @@ func main() {
 		go periodic.SlaveGarbageCollector(master)
 		go periodic.CheckReplica(master)
 		go periodic.MasterGarbageCollector(master)
-		master.IsPrimary = true
 	} else {
 		fmt.Println("This is a master.", "127.0.0.1:"+os.Args[1])
 	}

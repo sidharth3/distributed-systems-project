@@ -28,17 +28,21 @@ func RegisterWithMaster() {
 	for sum(checkReg) != numMasters{
 		for id,masterip := range helpers.MasterIP(){ // loop through and register to all masters
 			if checkReg[id]!=1{
+				req, err := http.NewRequest("POST", "http://"+masterip+"/register", bytes.NewBuffer(filesBytes))
+				if err != nil {
+					log.Fatal(err)
+				}
 			
 				client := &http.Client{
 					Timeout: time.Second * config.TIMEOUT,
 				}
-				res, err := client.Post("POST", "http://"+masterip+"/register", "application/json", bytes.NewBuffer(filesBytes))
-				if err != nil {
-					log.Fatal(err)
-				} else if res.StatusCode != http.StatusOK {
-					log.Fatal(res)
+			
+				resp, err := client.Do(req)
+				if err != nil || resp.StatusCode != 200 {
+					// log.Fatal("Failed to register with master.",masterip)
+					log.Println("Failed to register with master.",masterip)
 				} else {
-					fmt.Println("Successfully registered with master")
+					fmt.Println("Successfully registered with master.",masterip)
 					checkReg[id] = 1
 				}
 			}		
@@ -47,15 +51,15 @@ func RegisterWithMaster() {
 	}
 }
 
-func ForceUpdateMaster(data url.Values) {
-	//Questions - does forceUpdate need to send directory also or new upload information only?
-	master_URL := "http://127.0.0.1:8080/update"
-	res, err := http.PostForm(master_URL, data)
-	fmt.Println(res.StatusCode)
-	if err != nil || res.StatusCode != 200 {
-		fmt.Println("File upload has failed.")
-	}
-}
+// func ForceUpdateMaster(data url.Values) {
+// 	//Questions - does forceUpdate need to send directory also or new upload information only?
+// 	master_URL := "http://127.0.0.1:8080/update"
+// 	res, err := http.PostForm(master_URL, data)
+// 	fmt.Println(res.StatusCode)
+// 	if err != nil || res.StatusCode != 200 {
+// 		fmt.Println("File upload has failed.")
+// 	}
+// }
 
 
 // HELPER FUNCTIONS ---------------------------------

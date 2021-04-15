@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 )
+// can talk to another master if current primary master is not responding
+// 127.0.0.1:8080 , 127.0.0.1:8081 , 127.0.0.1:8082
 
 // build client CLI 'go build -o dfs ../client'
 func main() {
