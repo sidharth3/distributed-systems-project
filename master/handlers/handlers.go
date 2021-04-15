@@ -77,19 +77,26 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 			log.Fatal()
 		}
 
-		checkreply := make([]int, len(masterList))
-		for i := 0; i < len(masterList); i++ {
-			checkreply = append(checkreply, 0)
+		var wg sync.WaitGroup
+		wg.Add(len(masterList)/2 + 1)
+		for _, masterip := range masterList {
+			go masterSendForReply(masterip, filenameBytes2, "delfile", &wg)
 		}
+		wg.Wait()
 
-		var checkreplyLock sync.RWMutex
-		for id, masterip := range masterList {
-			go masterSendForReply(id, masterip, &checkreply, &checkreplyLock, filenameBytes2, "delfile")
-		}
+		// checkreply := make([]int, len(masterList))
+		// for i :=0 ; i<len(masterList);i++{
+		// 	checkreply = append(checkreply,0)
+		// }
 
-		for sum(checkreply) < len(masterList)/2+1 { //blocking -- wait for majority of replies
-			fmt.Println("Waiting for Reply from majority")
-		}
+		// var checkreplyLock sync.RWMutex
+		// for id,masterip := range masterList{
+		// 	go masterSendForReply(id, masterip, &checkreply, &checkreplyLock,filenameBytes2,"delfile")
+		// }
+
+		// for sum(checkreply)<len(masterList)/2+1{ //blocking -- wait for majority of replies
+		// 	fmt.Println("Waiting for Reply from majority")
+		// }
 		fmt.Println("Reply from majority received")
 
 		// send DONE to client
@@ -224,7 +231,7 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.isPrimaryLock.Unlock()
 }
 
-func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string) {
+func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup) {
 	fmt.Println("send reply to endpoint", endpoint, "to", masterip)
 	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
 	if err != nil {
@@ -238,6 +245,7 @@ func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLo
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		log.Println("Failed to reach master for reply.", masterip)
+		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -251,9 +259,10 @@ func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLo
 	}
 	if reply == "REPLY" { // check that the reply is OKAY
 		fmt.Println("Successfully get reply from master.", masterip)
-		checkreplyLock.Lock()
-		(*checkreply)[id] = 1
-		checkreplyLock.Unlock()
+		// checkreplyLock.Lock()
+		// (*checkreply)[id] = 1
+		// checkreplyLock.Unlock()
+		wg.Done()
 	}
 }
 
