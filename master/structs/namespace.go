@@ -68,10 +68,10 @@ func (n *Namespace) CollectGarbage(unlinked map[string]bool) {
 }
 
 // for master replica------------
-func (n *Namespace) ReturnNamespace() map[string] string{
+func (n *Namespace) ReturnNamespace() map[string]string {
 	return n.namespace
 }
 
-func (n *Namespace) setNamespace(updatedNS map[string]string){
+func (n *Namespace) SetNamespace(updatedNS map[string]string) {
 	n.namespace = updatedNS
-} 
+}

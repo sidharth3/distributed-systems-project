@@ -16,9 +16,10 @@ import (
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
-	firstBecomeMaster(m, masterList)
 
 	return func(w http.ResponseWriter, req *http.Request) {
+		fmt.Println("handleslaveip")
+		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		filename := req.Form["file"][0]
 		hash := req.Form["hash"][0]
@@ -38,8 +39,9 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 
 // Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
 func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
-	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
+		fmt.Println("HandleFile")
+		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		filename := req.Form["file"][0]
 		ipArr := make([]string, 0)
@@ -57,8 +59,11 @@ func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
 }
 
 func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
-	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
+		fmt.Println("HandleDeleteFile")
+		// if ismaster{
+		firstBecomeMaster(m, masterList)
+		// }
 		filenameBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
@@ -78,7 +83,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		}
 
 		var wg sync.WaitGroup
-		wg.Add(len(masterList)/2 + 1)
+		wg.Add(len(masterList) / 2)
 		for _, masterip := range masterList {
 			go masterSendForReply(masterip, filenameBytes2, "delfile", &wg)
 		}
@@ -109,8 +114,10 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 }
 
 func HandleListDir(m *structs.Master, masterList []string) http.HandlerFunc {
-	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
+		fmt.Println("HandleListDir")
+
+		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		path := req.Form["ls"][0]
 		fmt.Println("Path", path)
@@ -151,7 +158,7 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 	}
 }
 
-func collateNS(masterip string, count *map[[]string]int, countLock *sync.Mutex, wg *sync.WaitGroup) {
+func collateNS(masterip string, count map[[2]string]int, countLock *sync.Mutex, wg *sync.WaitGroup) {
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
 	}
@@ -174,15 +181,15 @@ func collateNS(masterip string, count *map[[]string]int, countLock *sync.Mutex, 
 	}
 
 	for fn, hash := range incomingNS {
-		incomingkey := []string{fn, hash}
-		count, ok := (*count)[incomingkey]
+		incomingkey := [2]string{fn, hash}
+		c, ok := count[incomingkey]
 		if ok {
-			newcount := count + 1
-			(*count)[incomingkey] = newcount
+			newcount := c + 1
+			count[incomingkey] = newcount
 			// check if newcount reaches majority
 
 		} else {
-			(*count)[incomingkey] = 1
+			count[incomingkey] = 1
 		}
 	}
 	wg.Done()
@@ -191,23 +198,24 @@ func collateNS(masterip string, count *map[[]string]int, countLock *sync.Mutex, 
 // for master replica -----------------------------------
 
 func firstBecomeMaster(m *structs.Master, masterList []string) {
-	m.isPrimaryLock.Lock()
-	if !*m.isPrimary {
+	m.IsPrimaryLock.Lock()
+	fmt.Println(m.IsPrimary)
+	if !m.IsPrimary {
 		fmt.Println("This is the new primary master.")
 		// [filename, hash]: count
-		count := make(map[[]string]int)
+		count := make(map[[2]string]int)
 		var countLock sync.Mutex
 		//first populate this with your current namespace
 		currentNS := m.Namespace.ReturnNamespace()
 		for fn, hash := range currentNS {
-			key := []string{fn, hash}
+			key := [2]string{fn, hash}
 			count[key] = 1
 		}
 		// do collation to the other namespaces
 		var wg sync.WaitGroup
 		for _, masterip := range masterList {
 			wg.Add(1)
-			go collateNS(masterip, &count, &countLock, &wg)
+			go collateNS(masterip, count, &countLock, &wg)
 		}
 		wg.Wait()
 		// collating majority entries
@@ -217,7 +225,7 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 				updatedNS[key[0]] = key[1]
 			}
 		}
-		m.Namespace.setNamespace(updatedNS)
+		m.Namespace.SetNamespace(updatedNS)
 		// spawn the periodic gorountines
 		go periodic.HeartbeatSender(m)
 		go periodic.LoadChecker(m)
@@ -225,10 +233,10 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 		go periodic.SlaveGarbageCollector(m)
 		go periodic.CheckReplica(m)
 		go periodic.MasterGarbageCollector(m)
-		// change the isPrimary to true
-		*m.isPrimary = true
+		// change the IsPrimary to true
+		m.IsPrimary = true
 	}
-	m.isPrimaryLock.Unlock()
+	m.IsPrimaryLock.Unlock()
 }
 
 func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup) {
@@ -257,7 +265,7 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 	if err != nil {
 		log.Fatal(err)
 	}
-	if reply == "REPLY" { // check that the reply is OKAY
+	if reply == "OKAY" { // check that the reply is OKAY
 		fmt.Println("Successfully get reply from master.", masterip)
 		// checkreplyLock.Lock()
 		// (*checkreply)[id] = 1

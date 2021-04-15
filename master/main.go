@@ -25,7 +25,7 @@ func main() {
 		go periodic.SlaveGarbageCollector(master)
 		go periodic.CheckReplica(master)
 		go periodic.MasterGarbageCollector(master)
-		master.isPrimary = true
+		master.IsPrimary = true
 	} else {
 		fmt.Println("This is a master.", "127.0.0.1:"+os.Args[1])
 	}
@@ -38,10 +38,10 @@ func main() {
 		}
 	}
 
-	http.HandleFunc("/file", handlers.HandleFile(master))
+	http.HandleFunc("/file", handlers.HandleFile(master, masterList))
 	http.HandleFunc("/delete", handlers.HandleDeleteFile(master, masterList))
-	http.HandleFunc("/ls", handlers.HandleListDir(master))
-	http.HandleFunc("/slaveips", handlers.HandleSlaveIPs(master))
+	http.HandleFunc("/ls", handlers.HandleListDir(master, masterList))
+	http.HandleFunc("/slaveips", handlers.HandleSlaveIPs(master, masterList))
 	http.HandleFunc("/register", handlers.HandleNewSlave(master))
 
 	// for other masters
