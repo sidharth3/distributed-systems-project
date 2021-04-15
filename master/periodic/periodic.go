@@ -19,22 +19,18 @@ func HeartbeatSender(m *structs.Master) {
 			break
 		}
 		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
-		fmt.Println("Sending heartbeats ...")
+		fmt.Printf("Sending heartbeats to %v slaves...\n", m.Slaves.GetLen())
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
-			fmt.Println("Connecting to slave at ", ip, "...")
-			req, err := http.NewRequest("GET", "http://"+ip+"/heartbeat", nil)
 			client := &http.Client{
 				Timeout: time.Second * config.TIMEOUT,
 			}
-			resp, err := client.Do(req)
-			if err != nil || resp.StatusCode != 200 {
-				fmt.Println(ip, " is DEAD. Updating metadata.")
+			res, err := client.Get("http://" + ip + "/heartbeat")
+			if err != nil || res.StatusCode != http.StatusOK {
+				fmt.Println(ip, " is DEAD")
 				m.Slaves.DelSlave(slave)
-				fmt.Println("Metadata edited.")
 			} else {
-				fmt.Println(ip + " is alive. Updating metadata.")
-				filesBytes, err := ioutil.ReadAll(resp.Body)
+				filesBytes, err := ioutil.ReadAll(res.Body)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -45,10 +41,8 @@ func HeartbeatSender(m *structs.Master) {
 					log.Fatal(err)
 				}
 				slave.SetHashes(files)
-				fmt.Println("Metadata updated.")
 			}
 		}
-
 		m.Slaves.ForEvery(f)
 	}
 }
@@ -62,28 +56,24 @@ func LoadChecker(m *structs.Master) {
 		fmt.Println("Checking loads...")
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
-			fmt.Println("Sending load msg to slave at", ip, "...")
-			req, err := http.NewRequest("GET", "http://"+ip+"/load", nil)
-			if err != nil {
-				log.Fatal(err)
-			}
 			client := &http.Client{
 				Timeout: time.Second * config.TIMEOUT,
 			}
-			resp, err := client.Do(req)
+			res, err := client.Get("http://" + ip + "/load")
 
-			if err != nil || resp.StatusCode != 200 {
-				fmt.Println(ip, " is DEAD. Updating metadata.")
+			if err != nil || res.StatusCode != http.StatusOK {
+				fmt.Println(ip, " is DEAD")
 				m.Slaves.DelSlave(slave)
-				fmt.Println("Metadata edited.")
 			} else {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := ioutil.ReadAll(res.Body)
 				if err != nil {
 					log.Fatal(err)
 				}
-				load, _ := strconv.Atoi(string(body))
+				load, err := strconv.Atoi(string(body))
+				if err != nil {
+					log.Fatal(err)
+				}
 				slave.SetLoad(load)
-				fmt.Printf("IP address %v: load %v", ip, load)
 			}
 		}
 		m.Slaves.SortLoad()
@@ -100,7 +90,6 @@ func FileLocationsUpdater(m *structs.Master) {
 		fmt.Println("Updating file locations")
 		newFileLocations := m.Slaves.GenFileLocations()
 		m.FileLocations.Remake(newFileLocations)
-		fmt.Println("File locations updated")
 	}
 }
 
@@ -118,22 +107,16 @@ func SlaveGarbageCollector(m *structs.Master) {
 
 		filesBytes, err := json.Marshal(hashedContent)
 		if err != nil {
-			log.Fatal()
+			log.Fatal(err)
 		}
 
 		//send over hashedContent to each slave
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
-			fmt.Println("Sending garbage collector msg to slave at", ip, "...")
-			req, err := http.NewRequest("POST", "http://"+ip+"/garbagecollector", bytes.NewBuffer(filesBytes))
-			if err != nil {
-				log.Fatal(err)
-			}
-			req.Header.Set("Content-Type", "application/json")
 			client := &http.Client{
 				Timeout: time.Second * config.TIMEOUT,
 			}
-			client.Do(req)
+			client.Post("http://"+ip+"/garbagecollector", "application/json", bytes.NewBuffer(filesBytes))
 		}
 		m.Slaves.ForEvery(f)
 	}
@@ -168,11 +151,10 @@ func CheckReplica(m *structs.Master) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			req, err := http.NewRequest("POST", slaveURL, bytes.NewBuffer(jsonReq))
 			client := &http.Client{
 				Timeout: time.Second * config.TIMEOUT,
 			}
-			client.Do(req)
+			client.Post(slaveURL, "application/json", bytes.NewBuffer(jsonReq))
 		}
 	}
 }
@@ -188,6 +170,5 @@ func MasterGarbageCollector(m *structs.Master) {
 		unlinked := m.UnlinkedNamespace()
 		unlinked = m.GCCount.Cycle(unlinked)
 		m.Namespace.CollectGarbage(unlinked)
-		fmt.Println("Master Garbage Collection Cycle Ended")
 	}
 }

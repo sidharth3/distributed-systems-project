@@ -14,7 +14,7 @@ import (
 //to run master - go run main.go 8082 8080 8081
 
 func main() {
-	master := test.SimpleCase()
+	master := test.EmptyCase()
 
 	// check if it is primary
 	if len(os.Args) > 3 && os.Args[len(os.Args)-1] == "-p" {

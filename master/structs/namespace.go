@@ -1,7 +1,6 @@
 package structs
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 )
@@ -24,22 +23,26 @@ func (n *Namespace) GetHash(filename string) string {
 	return n.namespace[filename]
 }
 
-func (n *Namespace) DelFile(filename string) {
+func (n *Namespace) DelFile(filename string) bool {
 	n.rwLock.Lock()
-	delete(n.namespace, filename)
-	n.rwLock.Unlock()
+	exists := false
+	if n.namespace[filename] != "" {
+		delete(n.namespace, filename)
+		exists = true
+	}
+	defer n.rwLock.Unlock()
+	return exists
 }
 
 func (n *Namespace) GetFile(path string) []string {
 	files := make([]string, 0)
 	n.rwLock.Lock()
-	if path == "" {
+	if path == "." {
 		for filename := range n.namespace {
 			files = append(files, filename)
 		}
 	} else {
 		for filename := range n.namespace {
-			fmt.Println(strings.SplitAfter(filename, path))
 			if strings.SplitAfter(filename, path)[0] == path && strings.SplitAfter(filename, path)[1][0] == '/' {
 				files = append(files, strings.Split(filename, path)[1])
 			}

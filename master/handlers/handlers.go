@@ -6,7 +6,6 @@ import (
 	"ds-proj/master/periodic"
 	"ds-proj/master/structs"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -20,7 +19,11 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("handleslaveip")
 		firstBecomeMaster(m, masterList)
-		req.ParseForm()
+		err := req.ParseForm()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		filename := req.Form["file"][0]
 		hash := req.Form["hash"][0]
 
@@ -46,6 +49,10 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 			// status := "DONE"
 			fmt.Println("Reply from majority received")
 			ipArr := m.Slaves.GetFree()
+			if len(ipArr) == 0 {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
 			status = ipArr
 		} else {
 			// status := "NOTDONE"
@@ -67,18 +74,30 @@ func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("HandleFile")
 		firstBecomeMaster(m, masterList)
-		req.ParseForm()
+		err := req.ParseForm()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		filename := req.Form["file"][0]
 		ipArr := make([]string, 0)
-
 		ipArr = append(ipArr, m.Namespace.GetHash(filename))
-
+		if ipArr[0] == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		ipArr = append(ipArr, m.FileLocations.GetIPs(ipArr[0])...)
+		if len(ipArr) == 1 {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
 		data, err := json.Marshal(ipArr)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		w.Write(data)
 	}
 }
@@ -96,6 +115,11 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		err = json.Unmarshal(filenameBytes, &filename)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if !m.Namespace.DelFile(filename) {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 
 		m.Namespace.DelFile(filename)
@@ -139,7 +163,6 @@ func HandleListDir(m *structs.Master, masterList []string) http.HandlerFunc {
 		firstBecomeMaster(m, masterList)
 		req.ParseForm()
 		path := req.Form["ls"][0]
-		fmt.Println("Path", path)
 
 		file := m.Namespace.GetFile(path)
 

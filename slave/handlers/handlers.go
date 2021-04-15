@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"ds-proj/slave/config"
 	"ds-proj/slave/helpers"
 	"encoding/json"
 	"fmt"
@@ -11,47 +12,47 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 )
 
 func DownloadFile(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	err := r.ParseForm()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	filename := r.Form["file"][0]
 	http.ServeFile(w, r, filepath.Join(helpers.StorageDir(), filename))
 }
 
 func UploadFile(w http.ResponseWriter, r *http.Request) {
 	// Parse our multipart form, 10 << 20 specifies a maximum upload of 10 MB files
-	r.ParseMultipartForm(10 << 20)
-	file, fileHeader, err := r.FormFile("filename")
-
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	file, fileHeader, err := r.FormFile("filename")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	defer file.Close()
 
 	// Create a new file in the uploads directory
 	dst, err := os.Create(path.Join(helpers.StorageDir(), fileHeader.Filename))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		log.Fatal(err)
 	}
-
 	defer dst.Close()
 
 	// Copy the uploaded file to the filesystem at the specified destination
 	_, err = io.Copy(dst, file)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		log.Fatal(err)
 	}
-
-	fmt.Printf("Uploaded File: %v\n", fileHeader.Filename)
-	fmt.Printf("File Size: %v\n", fileHeader.Size)
-
-	// return that we have successfully uploaded our file
-	fmt.Fprintf(w, "Successfully Uploaded File\n")
 }
 
 func HandleReplica(w http.ResponseWriter, r *http.Request) {
@@ -60,16 +61,18 @@ func HandleReplica(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	w.WriteHeader(http.StatusOK)
 	toGet := make(map[string]string)
 	err = json.Unmarshal(toGetByte, &toGet)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// toGet => {fileHash: ip1, fileHash, ip2}
 	for f, ip := range toGet {
-		res, err := http.Get("http://" + ip + "/file?file=" + f)
-		if err != nil {
-			log.Fatal(err)
+		client := &http.Client{
+			Timeout: time.Second * config.TIMEOUT,
 		}
+		res, _ := client.Get("http://" + ip + "/file?file=" + f)
 
 		// Create the file
 		if res.StatusCode == http.StatusOK {
@@ -110,7 +113,6 @@ func GarbageCollectorHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	w.WriteHeader(http.StatusOK)
 	files := make(map[string]bool)
 	err = json.Unmarshal(filesBytes, &files)
 	if err != nil {

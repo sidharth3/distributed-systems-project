@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -29,24 +28,19 @@ func RegisterWithMaster() {
 	for sum(checkReg) != numMasters{
 		for id,masterip := range helpers.MasterIP(){ // loop through and register to all masters
 			if checkReg[id]!=1{
-				req, err := http.NewRequest("POST", "http://"+masterip+"/register", bytes.NewBuffer(filesBytes))
-				if err != nil {
-					log.Fatal(err)
-				}
 			
 				client := &http.Client{
 					Timeout: time.Second * config.TIMEOUT,
 				}
-			
-				resp, err := client.Do(req)
-				if err != nil || resp.StatusCode != 200 {
-					// log.Fatal("Failed to register with master.",masterip)
-					log.Println("Failed to register with master.",masterip)
+				res, err := client.Post("POST", "http://"+masterip+"/register", "application/json", bytes.NewBuffer(filesBytes))
+				if err != nil {
+					log.Fatal(err)
+				} else if res.StatusCode != http.StatusOK {
+					log.Fatal(res)
 				} else {
-					fmt.Println("Successfully registered with master.",masterip)
+					fmt.Println("Successfully registered with master")
 					checkReg[id] = 1
 				}
-				// defer resp.Body.Close()
 			}		
 		}
 		time.Sleep(1 * time.Second)
