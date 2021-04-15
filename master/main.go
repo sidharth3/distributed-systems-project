@@ -46,6 +46,7 @@ func main() {
 
 	// for other masters
 	http.HandleFunc("/master/namespace", handlers.MasterHandleNamespace(master)) //tosend over namespaces
+	http.HandleFunc("/master/uploadfile", handlers.MasterHandleFile(master))     //to upload file
 	http.HandleFunc("/master/delfile", handlers.MasterHandleDelFile(master))     //to del something in the namespace and sends reply back
 	http.HandleFunc("/master/notprimary", handlers.MasterHandleNotPrimary(master))
 
