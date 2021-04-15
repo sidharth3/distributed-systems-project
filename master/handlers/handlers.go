@@ -61,9 +61,7 @@ func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
 func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("HandleDeleteFile")
-		// if ismaster{
 		firstBecomeMaster(m, masterList)
-		// }
 		filenameBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
@@ -83,29 +81,24 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		}
 
 		var wg sync.WaitGroup
-		wg.Add(len(masterList) / 2)
+		numofreplies := 0
+		var numofreplieslock sync.Mutex
 		for _, masterip := range masterList {
-			go masterSendForReply(masterip, filenameBytes2, "delfile", &wg)
+			wg.Add(1) //(len(masterList) -1)/ 2
+			go masterSendForReply(masterip, filenameBytes2, "delfile", &wg, &numofreplies, &numofreplieslock)
 		}
 		wg.Wait()
+		// check for majority
+		if numofreplies >= (len(masterList) -1)/ 2{
+			status := "DONE"
+			fmt.Println("Reply from majority received")
+		}else{
+			status := "NOTDONE"
+			fmt.Println("NOT enough reply from majority received")
+		}
 
-		// checkreply := make([]int, len(masterList))
-		// for i :=0 ; i<len(masterList);i++{
-		// 	checkreply = append(checkreply,0)
-		// }
-
-		// var checkreplyLock sync.RWMutex
-		// for id,masterip := range masterList{
-		// 	go masterSendForReply(id, masterip, &checkreply, &checkreplyLock,filenameBytes2,"delfile")
-		// }
-
-		// for sum(checkreply)<len(masterList)/2+1{ //blocking -- wait for majority of replies
-		// 	fmt.Println("Waiting for Reply from majority")
-		// }
-		fmt.Println("Reply from majority received")
-
-		// send DONE to client
-		msgtoclient, err := json.Marshal("DONE")
+		// send status to client
+		msgtoclient, err := json.Marshal(status)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -246,7 +239,7 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 	m.IsPrimaryLock.Unlock()
 }
 
-func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup) {
+func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, wg *sync.WaitGroup, numofreplies *int, &numofreplieslock *sync.Mutex) {
 	fmt.Println("send reply to endpoint", endpoint, "to", masterip)
 	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
 	if err != nil {
@@ -260,6 +253,7 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		log.Println("Failed to reach master for reply.", masterip)
+		wg.Done()
 		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
@@ -274,9 +268,9 @@ func masterSendForReply(masterip string, filenameBytes []byte, endpoint string, 
 	}
 	if reply == "OKAY" { // check that the reply is OKAY
 		fmt.Println("Successfully get reply from master.", masterip)
-		// checkreplyLock.Lock()
-		// (*checkreply)[id] = 1
-		// checkreplyLock.Unlock()
+		numofreplies.Lock()
+		*numofreplies++
+		numofreplies.Unlock()
 		wg.Done()
 	}
 }
