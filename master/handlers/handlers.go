@@ -13,9 +13,10 @@ import (
 	"time"
 )
 
-
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
-func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
+func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
+	firstBecomeMaster(m, masterList)
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
@@ -35,7 +36,8 @@ func HandleSlaveIPs(m *structs.Master) http.HandlerFunc {
 }
 
 // Sends an array of strings over to the client. [hashValue, ip1, ip2, ip3]
-func HandleFile(m *structs.Master) http.HandlerFunc {
+func HandleFile(m *structs.Master, masterList []string) http.HandlerFunc {
+	firstBecomeMaster(m,, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		filename := req.Form["file"][0]
@@ -53,40 +55,9 @@ func HandleFile(m *structs.Master) http.HandlerFunc {
 	}
 }
 
-func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string){
-	fmt.Println("send modified namespace to",masterip)
-	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client := &http.Client{
-		Timeout: time.Second * config.TIMEOUT,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		log.Println("Failed to reach master for reply.",masterip)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var reply string
-	err = json.Unmarshal(body, &reply)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if reply =="REPLY"{ // check that the reply is OKAY
-		fmt.Println("Successfully get reply from master.",masterip)
-		checkreplyLock.Lock()
-		(*checkreply)[id] = 1
-		checkreplyLock.Unlock()
-	}
-}
 
 func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
+	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
 		filenameBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
@@ -127,46 +98,11 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 			log.Fatal(err)
 		}
 		w.Write(msgtoclient)
-
-		// if len(masterList)>0{
-		// 	// send this information to all the other masters and get back majority of OKAY
-		// 	// do a broadcast to all master -> do in goroutines?? Should be go routine...
-		// 	// or in for loop? which can check if less then minority then return error
-		// 	for id,masterip := range masterList{
-		// 		fmt.Println("send modified namespace to",masterip)
-		// 		req, err := http.NewRequest("POST", "http://"+masterip+"/master/delfile", bytes.NewBuffer(filenameBytes)) //send over the string filename
-		// 		if err != nil {
-		// 			log.Fatal(err)
-		// 		}
-			
-		// 		client := &http.Client{
-		// 			Timeout: time.Second * config.TIMEOUT,
-		// 		}
-			
-		// 		resp, err := client.Do(req)
-		// 		if err != nil || resp.StatusCode != 200 {
-		// 			log.Println("Failed to reach master for reply.",masterip)
-		// 		}
-		// 		body, err := ioutil.ReadAll(resp.Body)
-		// 		if err != nil {
-		// 			log.Fatal(err)
-		// 		}
-
-		// 		var reply string
-		// 		err = json.Unmarshal(body, &reply)
-		// 		if err != nil {
-		// 			log.Fatal(err)
-		// 		}
-		// 		if reply =="REPLY"{ // check that the reply is OKAY
-		// 			fmt.Println("Successfully get reply from master.",masterip)
-		// 			checkreply[id] = 1
-		// 		}
-		// 	}
-		// }
 	}
 }
 
-func HandleListDir(m *structs.Master) http.HandlerFunc {
+func HandleListDir(m *structs.Master, masterList []string) http.HandlerFunc {
+	firstBecomeMaster(m, masterList)
 	return func(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		path := req.Form["ls"][0]
@@ -205,6 +141,124 @@ func HandleNewSlave(m *structs.Master) http.HandlerFunc {
 		fmt.Println(slaveIP,"slave is registered.")
 		delete(files, "/"+slaveIP)
 		m.Slaves.NewSlave(slaveIP, 0, files)
+	}
+}
+
+func collateNS(masterip string,  count *map[[]string]int, countLock *sync.Mutex, wg *sync.WaitGroup){
+	req, err := http.NewRequest("POST", "http://"+masterip+"/master/namespace") 
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		log.Println("Failed to reach master for namespace request at /master/namespace.",masterip)
+		wg.Done()
+		return
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var incomingNS map[string] string
+	err = json.Unmarshal(body, &incomingNS)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for fn, hash:= range incomingNS{
+		incomingkey := []string{fn,hash}
+		count, ok := (*count)[incomingkey]
+		if ok{
+			newcount := count+1
+			(*count)[incomingkey] = newcount 
+			// check if newcount reaches majority
+
+		}else{
+			(*count)[incomingkey] = 1
+		}
+	}
+	wg.Done()
+}
+
+// for master replica -----------------------------------
+
+func firstBecomeMaster(m *structs.Master, masterList []string){
+	m.isPrimaryLock.Lock()
+	if !*m.isPrimary{
+		fmt.Println("This is the new primary master.")
+		// [filename, hash]: count
+		count:= make(map[[]string] int)
+		var countLock sync.Mutex
+		//first populate this with your current namespace
+		currentNS := m.Namespace.ReturnNamespace()
+		for fn, hash:= range currentNS{
+			key:=[]string{fn,hash}
+			count[key] = 1
+		}
+		// do collation to the other namespaces
+		var wg sync.WaitGroup
+		for _,masterip :=range masterList{
+			wg.Add(1)
+			go collateNS(masterip, &count, &countLock,&wg)
+		}
+		wg.Wait()
+		// collating majority entries
+		updatedNS := make(map [string]string)
+		for key, c:= range count{
+			if c > len(masterList)/2+1{
+				updatedNS[key[0]] = key[1]
+			}
+		}
+		m.Namespace.setNamespace(updatedNS)
+		// spawn the periodic gorountines
+		go periodic.HeartbeatSender(m)
+		go periodic.LoadChecker(m)
+		go periodic.FileLocationsUpdater(m)
+		go periodic.SlaveGarbageCollector(m)
+		go periodic.CheckReplica(m)
+		go periodic.MasterGarbageCollector(m)
+		// change the isPrimary to true
+		*m.isPrimary = true
+	} 	
+	m.isPrimaryLock.Unlock()
+}
+
+func masterSendForReply(id int, masterip string, checkreply *[]int, checkreplyLock *sync.RWMutex, filenameBytes []byte, endpoint string){
+	fmt.Println("send reply to endpoint",endpoint,"to",masterip)
+	req, err := http.NewRequest("POST", "http://"+masterip+"/master/"+endpoint, bytes.NewBuffer(filenameBytes)) //send over the string filename
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := &http.Client{
+		Timeout: time.Second * config.TIMEOUT,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		log.Println("Failed to reach master for reply.",masterip)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var reply string
+	err = json.Unmarshal(body, &reply)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if reply =="REPLY"{ // check that the reply is OKAY
+		fmt.Println("Successfully get reply from master.",masterip)
+		checkreplyLock.Lock()
+		(*checkreply)[id] = 1
+		checkreplyLock.Unlock()
 	}
 }
 

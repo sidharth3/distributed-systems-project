@@ -25,6 +25,7 @@ func main() {
 		go periodic.SlaveGarbageCollector(master)
 		go periodic.CheckReplica(master)
 		go periodic.MasterGarbageCollector(master)
+		master.isPrimary=true
 	}else{
 		fmt.Println("This is a master.","127.0.0.1:"+os.Args[1])			
 	}

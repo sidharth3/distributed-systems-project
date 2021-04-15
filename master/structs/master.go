@@ -1,12 +1,17 @@
 package structs
 
-import "sync"
+import (
+	"sync"
+	"ds-proj/master/periodic"
+)
 
 type Master struct {
 	Slaves        *Slaves
 	FileLocations *FileLocations
 	Namespace     *Namespace
 	GCCount       *GCCount
+	isPrimary bool
+	isPrimaryLock *sync.Mutex
 }
 
 func InitMaster() *Master {
@@ -14,7 +19,8 @@ func InitMaster() *Master {
 	fileLocations := &FileLocations{&sync.RWMutex{}, make(map[string]map[string]bool)}
 	namespace := &Namespace{&sync.RWMutex{}, make(map[string]string)}
 	gccount := &GCCount{&sync.RWMutex{}, make(map[string]int)}
-	return &Master{slaves, fileLocations, namespace, gccount}
+	var isPrimaryLock *sync.Mutex
+	return &Master{slaves, fileLocations, namespace, gccount, false, isPrimaryLock}
 }
 
 func (m *Master) UnlinkedHashes() map[string]bool {

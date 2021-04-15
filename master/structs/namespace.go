@@ -71,3 +71,7 @@ func (n *Namespace) CollectGarbage(unlinked map[string]bool) {
 func (n *Namespace) ReturnNamespace() map[string] string{
 	return n.namespace
 }
+
+func (n *Namespace) setNamespace(updatedNS map[string]string){
+	n.namespace = updatedNS
+} 
