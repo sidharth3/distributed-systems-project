@@ -51,11 +51,11 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 			if err != nil {
 				log.Fatal(err)
 			}
-			status := [2]string{"DONE", data}
+			status := data
 		}else{
 			// status := "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")
-			status := [2]string{"NOTDONE", 0}
+			status := make([]string,0)
 		}
 
 		// send status to client
