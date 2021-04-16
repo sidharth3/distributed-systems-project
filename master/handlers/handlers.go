@@ -6,19 +6,19 @@ import (
 	"ds-proj/master/periodic"
 	"ds-proj/master/structs"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"sync"
 	"time"
-	"fmt"
 )
 
 // Sends an array of strings over to the client. [ip1, ip2, ip3]
 func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, req *http.Request) {
-		fmt.Println("handleslaveip")
+		fmt.Println("HandleSlaveIPs")
 		firstBecomeMaster(m, masterList)
 		err := req.ParseForm()
 		if err != nil {
