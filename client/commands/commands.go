@@ -14,9 +14,50 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 )
+
+func DownloadDirectory(master_ip string, remote_directory string, local_directory string) {
+
+	extension := path.Ext(remote_directory)
+
+	if extension != "" {
+		DownloadFile(master_ip, remote_directory, local_directory)
+	} else {
+
+		client := &http.Client{
+			Timeout: time.Second * config.TIMEOUT,
+		}
+
+		res, err := client.Get("http://" + master_ip + "/ls?ls=" + remote_directory)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		dir := make([]string, 0)
+		err = json.Unmarshal(body, &dir)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = os.MkdirAll(filepath.Dir(local_directory), os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, temp_directory := range dir {
+			DownloadFile(master_ip, remote_directory+temp_directory, local_directory+temp_directory)
+
+		}
+	}
+}
 
 func DownloadFile(master_ip string, remote_filename string, local_filename string) {
 
@@ -138,7 +179,7 @@ func DeleteFile(master_ip string, filename string) {
 	fmt.Println("Sucessfully deleted file")
 }
 
-func ListDir(master_ip string, path string) {
+func ListDir(master_ip string, path string) string {
 	client := &http.Client{
 		Timeout: time.Second * config.TIMEOUT,
 	}
@@ -163,7 +204,9 @@ func ListDir(master_ip string, path string) {
 		fileDir.Insert(filename)
 	}
 	dirStr := fileDir.FormatString()
-	fmt.Println(dirStr)
+	// fmt.Println(dirStr)
+
+	return dirStr
 }
 
 func getFileMaster(master_ip string, filename string) []string {
