@@ -51,7 +51,7 @@ func main() {
 			fmt.Println("Missing two args. rm requires masterIP and file name.")
 			os.Exit(0)
 		} else {
-			commands.DeleteFile(os.Args[2], os.Args[3])
+			commands.DeleteDirectory(os.Args[2], os.Args[3])
 		}
 	case "-ls":
 		// example command: ./dfs -ls 127.0.0.1:8080 /gfspath/to
