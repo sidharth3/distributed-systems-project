@@ -18,7 +18,6 @@ func HeartbeatSender(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
 		fmt.Printf("Sending heartbeats to %v slaves...\n", m.Slaves.GetLen())
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
@@ -44,6 +43,7 @@ func HeartbeatSender(m *structs.Master) {
 			}
 		}
 		m.Slaves.ForEvery(f)
+		time.Sleep(time.Duration(config.HBINTERVAL) * time.Second)
 	}
 }
 
@@ -52,7 +52,6 @@ func LoadChecker(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Second * config.LDINTERVAL)
 		fmt.Println("Checking loads...")
 		f := func(slave *structs.Slave) {
 			ip := slave.GetIP()
@@ -78,6 +77,7 @@ func LoadChecker(m *structs.Master) {
 		}
 		m.Slaves.SortLoad()
 		m.Slaves.ForEvery(f)
+		time.Sleep(time.Second * config.LDINTERVAL)
 	}
 }
 
@@ -86,10 +86,10 @@ func FileLocationsUpdater(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Second * config.FLINTERVAL)
 		fmt.Println("Updating file locations")
 		newFileLocations := m.Slaves.GenFileLocations()
 		m.FileLocations.Remake(newFileLocations)
+		time.Sleep(time.Second * config.FLINTERVAL)
 	}
 }
 
@@ -100,7 +100,6 @@ func SlaveGarbageCollector(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 		fmt.Println("Sending garbage collection message ...")
 		// prepare hashedContent
 		hashedContent := m.UnlinkedHashes()
@@ -119,6 +118,7 @@ func SlaveGarbageCollector(m *structs.Master) {
 			client.Post("http://"+ip+"/garbagecollector", "application/json", bytes.NewBuffer(filesBytes))
 		}
 		m.Slaves.ForEvery(f)
+		time.Sleep(time.Duration(config.GCINTERVAL) * time.Second)
 	}
 }
 
@@ -127,7 +127,6 @@ func CheckReplica(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Duration(config.REPINTERVAL) * time.Second)
 		fmt.Println("Replication cycle starting")
 		toReplicate := make(map[string]map[string]string) // {slaveip: {fileHash: ip1, fileHash2: ip2}}
 
@@ -156,6 +155,7 @@ func CheckReplica(m *structs.Master) {
 			}
 			client.Post(slaveURL, "application/json", bytes.NewBuffer(jsonReq))
 		}
+		time.Sleep(time.Duration(config.REPINTERVAL) * time.Second)
 	}
 }
 
@@ -165,10 +165,10 @@ func MasterGarbageCollector(m *structs.Master) {
 		if !m.IsPrimary {
 			break
 		}
-		time.Sleep(time.Second * config.MGCINTERVAL)
 		fmt.Println("Master Garbage Collection Cycle Starting")
 		unlinked := m.UnlinkedNamespace()
 		unlinked = m.GCCount.Cycle(unlinked)
 		m.Namespace.CollectGarbage(unlinked)
+		time.Sleep(time.Second * config.MGCINTERVAL)
 	}
 }

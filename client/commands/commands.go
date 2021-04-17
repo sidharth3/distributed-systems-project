@@ -223,7 +223,7 @@ func DeleteFile(master_ip string, filename string) {
 	if msg == "NOTDONE" {
 		fmt.Println("Delete file failed -", filename)
 	} else {
-		fmt.Println("Sucessfully deleted file - ", filename)
+		fmt.Println("Successfully deleted file - ", filename)
 	}
 }
 
