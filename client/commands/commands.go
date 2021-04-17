@@ -238,7 +238,7 @@ func ListDir(master_ip string, path string) string {
 		fileDir.Insert(filename)
 	}
 	dirStr := fileDir.FormatString()
-	// fmt.Println(dirStr)
+	fmt.Println(dirStr)
 
 	return dirStr
 }

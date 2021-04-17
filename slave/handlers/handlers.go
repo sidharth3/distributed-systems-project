@@ -53,6 +53,9 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Printf("Uploaded File: %v\n", fileHeader.Filename)
+	fmt.Printf("File Size: %v\n", fileHeader.Size)
 }
 
 func HandleReplica(w http.ResponseWriter, r *http.Request) {
