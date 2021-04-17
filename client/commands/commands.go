@@ -222,7 +222,7 @@ func DeleteFile(master_ip string, filename string) {
 	}
 	if msg == "NOTDONE" {
 		fmt.Println("Delete file failed -", filename)
-	}else{
+	} else {
 		fmt.Println("Sucessfully deleted file - ", filename)
 	}
 }
@@ -252,7 +252,7 @@ func ListDir(master_ip string, path string) string {
 		fileDir.Insert(filename)
 	}
 	dirStr := fileDir.FormatString()
-	// fmt.Println(dirStr)
+	fmt.Println(dirStr)
 
 	return dirStr
 }
@@ -309,7 +309,7 @@ func getSlaveIPsMaster(master_ip string, remote_filename string, hash string) []
 	if len(ipArr) == 0 {
 		log.Fatal("Upload file failed")
 	}
-	
+
 	fmt.Println(ipArr)
 	return ipArr
 }
