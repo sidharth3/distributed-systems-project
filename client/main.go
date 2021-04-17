@@ -34,7 +34,9 @@ func main() {
 			fmt.Println("Missing three args. get requires masterIP, dfs filepath and local filepath.")
 			os.Exit(0)
 		} else {
-			commands.DownloadFile(os.Args[2], os.Args[3], os.Args[4])
+			// commands.DownloadFile(os.Args[2], os.Args[3], os.Args[4])
+			commands.DownloadDirectory(os.Args[2], os.Args[3], os.Args[4])
+
 		}
 	case "-put":
 		// example command: ./dfs -put 127.0.0.1:8080 example.txt
@@ -51,7 +53,7 @@ func main() {
 			fmt.Println("Missing two args. rm requires masterIP and file name.")
 			os.Exit(0)
 		} else {
-			commands.DeleteFile(os.Args[2], os.Args[3])
+			commands.DeleteDirectory(os.Args[2], os.Args[3])
 		}
 	case "-ls":
 		// example command: ./dfs -ls 127.0.0.1:8080 /gfspath/to
