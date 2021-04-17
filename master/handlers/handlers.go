@@ -51,7 +51,7 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 			fmt.Println("Reply from majority received")
 			m.Namespace.SetHash(filename, hash)
 			m.GCCount.NewFile(filename)
-			
+
 			ipArr := m.Slaves.GetFree()
 			if len(ipArr) == 0 {
 				w.WriteHeader(http.StatusNotFound)
@@ -267,7 +267,7 @@ func firstBecomeMaster(m *structs.Master, masterList []string) {
 		// collating majority entries
 		updatedNS := make(map[string]string)
 		for key, c := range count {
-			if c > len(masterList)/2+1 {
+			if c >= len(masterList)/2+1 {
 				updatedNS[key[0]] = key[1]
 			}
 		}
