@@ -28,8 +28,8 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 		filename := req.Form["file"][0]
 		hash := req.Form["hash"][0]
 
-		m.Namespace.SetHash(filename, hash)
-		m.GCCount.NewFile(filename)
+		// m.Namespace.SetHash(filename, hash)
+		// m.GCCount.NewFile(filename)
 
 		filenameBytes2, err := json.Marshal([2]string{filename, hash})
 		if err != nil {
@@ -49,6 +49,9 @@ func HandleSlaveIPs(m *structs.Master, masterList []string) http.HandlerFunc {
 		if numofreplies >= len(masterList)/2 {
 			// status := "DONE"
 			fmt.Println("Reply from majority received")
+			m.Namespace.SetHash(filename, hash)
+			m.GCCount.NewFile(filename)
+			
 			ipArr := m.Slaves.GetFree()
 			if len(ipArr) == 0 {
 				w.WriteHeader(http.StatusNotFound)
@@ -123,7 +126,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 			return
 		}
 
-		m.Namespace.DelFile(filename)
+		// m.Namespace.DelFile(filename)
 
 		filenameBytes2, err := json.Marshal(filename)
 		if err != nil {
@@ -143,6 +146,7 @@ func HandleDeleteFile(m *structs.Master, masterList []string) http.HandlerFunc {
 		if numofreplies >= (len(masterList)-1)/2 {
 			status = "DONE"
 			fmt.Println("Reply from majority received")
+			m.Namespace.DelFile(filename)
 		} else {
 			status = "NOTDONE"
 			fmt.Println("NOT enough reply from majority received")

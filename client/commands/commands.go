@@ -210,7 +210,21 @@ func DeleteFile(master_ip string, filename string) {
 		log.Fatal(res)
 	}
 
-	fmt.Println("Sucessfully deleted file")
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var msg string
+	err = json.Unmarshal(body, &msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if msg == "NOTDONE" {
+		fmt.Println("Delete file failed -", filename)
+	}else{
+		fmt.Println("Sucessfully deleted file - ", filename)
+	}
 }
 
 func ListDir(master_ip string, path string) string {
